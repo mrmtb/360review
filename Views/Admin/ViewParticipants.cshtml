@@ -1,0 +1,107 @@
+@model IEnumerable<vwAdminParticipants>
+
+@{
+    ViewBag.Title = "Manage Participants";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+}
+
+<h4>Participants</h4>
+
+<table class="table table-striped table-hover table-sm" id="participantsTable">
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Is Ratee?</th>
+            <th>Is Active?</th>
+            <th>Date Last Emailed</th>
+            <th></th>
+            <th></th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+
+    @foreach (var p in Model)
+    {
+        <tr style="@(p.ParticipantIsActive ? "" : "font-style:italic")" class="align-middle">
+            <td>@p.ParticipantEmail</td>
+            <td>@p.ParticipantNameFirst</td>
+            <td>@p.ParticipantNameLast</td>
+            <td>@p.IsRatee</td>
+            <td>@p.ParticipantIsActive</td>
+            <td>@p.EvaluationParticipantDateLastEmailed?.ToString("g")</td>
+            <td>
+                <a asp-action="DumpParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="ViewParticipants" class="btn btn-sm btn-sm-nopad">
+                    <i class="bi bi-printer"></i>&nbsp;Data
+                </a>
+            </td>
+            <td>
+                <a asp-action="EditParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="ViewParticipants" class="btn btn-sm btn-sm-nopad">
+                    <i class="bi bi-arrow-right-square"></i>&nbsp;Edit
+                </a>
+            </td>
+            <td>
+                <a asp-action="ToggleParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="ViewParticipants" class="btn btn-sm btn-sm-nopad @(p.ParticipantIsActive ? "text-danger" : "text-success")">
+                    <i class="bi bi-exclamation-diamond"></i>&nbsp;@(p.ParticipantIsActive ? "Disable" : "Re-enable")
+                </a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<nav>
+    <ul class="pagination justify-content-center pagination-sm" id="pagination"></ul>
+</nav>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"> </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.8.4/moment.min.js"></script>
+    <script src="https://cdn.datatables.net/plug-ins/2.3.2/sorting/datetime-moment.js"></script>
+    
+    <script>
+        $(document).ready(function () {
+            //$.fn.dataTable.moment = function ( format, locale ) {
+            //    var types = $.fn.dataTable.ext.type;
+            
+                // Add type detection
+            //    types.detect.unshift( function ( d ) {
+            //        return moment( d, format, locale, true ).isValid() ?
+            //            'moment-'+format :
+            //            null;
+            //    } );
+            
+                // Add sorting method - use an integer for the sorting
+            //    types.order[ 'moment-'+format+'-pre' ] = function ( d ) {
+            //        return moment( d, format, locale, true ).unix();
+            //    };
+            //};
+
+            console.log('jQuery version:', $.fn.jquery);
+            console.log('DataTables version:', $.fn.dataTable ? $.fn.dataTable.version : 'DataTables not loaded');
+            console.log('Moment.js version:', moment ? moment.version : 'Moment.js not loaded');
+            console.log($('#participantsTable').length ? 'Table found' : 'Table not found');
+
+            $.fn.dataTable.ext.errMode = 'throw';
+
+            $.fn.dataTable.moment('M/D/YYYY LT', 'en');
+
+            $('#participantsTable').DataTable({
+                "searching": true,
+                "pageLength": 25,
+                "saveState": true,
+                columnDefs: [
+                    { targets: -1, orderable: false }, 
+                    { targets: -2, orderable: false }, 
+                    { targets: -3, orderable: false } 
+                ]
+            });
+        });
+    </script>
+
+}

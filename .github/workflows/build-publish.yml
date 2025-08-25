@@ -1,0 +1,40 @@
+name: Build and Publish MVC App
+
+on:
+  push:
+    branches:
+      - main  # only run on main branch pushes
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      # Step 1: Pull code from GitHub
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Install .NET SDK
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Step 3: Restore dependencies
+      - name: Restore NuGet packages
+        run: dotnet restore
+
+      # Step 4: Build project
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      # Step 5: Publish project (ready for IIS)
+      - name: Publish for IIS
+        run: dotnet publish --configuration Release --output ./publish
+
+      # Step 6: Upload as an artifact (you can download it later)
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvc-app-publish
+          path: ./publish

@@ -1,0 +1,167 @@
+@model IEnumerable<reviews.Models.Evaluation>
+
+@{
+    ViewBag.Title = "Manage Tables"; 
+    var selectedEvaluation = ViewData["SelectedModel"]?.ToString() == "Evaluations" ? true : false;
+    var selectedClient = ViewData["SelectedModel"]?.ToString() == "Clients" ? true : false;
+    var selectedEmailTemplate = ViewData["SelectedModel"]?.ToString() == "EmailTemplates" ? true : false;
+}
+
+<h4>Manage Tables</h4>
+
+<select class="form-select" id="modelSelect" name="selectedTable" aria-label="Select table to manage">
+    <option value="GetEvaluationsForManage" selected="@(selectedEvaluation ? "selected" : null)">Evaluations</option>
+    <option value="GetClientsForManage" selected="@(selectedClient ? "selected" : null)">Clients</option>
+    <option value="GetEmailTemplatesForManage" selected="@(selectedEmailTemplate ? "selected" : null)">Email Templates</option>
+</select>
+
+<p>
+    <a class="btn btn-primary" asp-action="createItem" >Create New</a>
+</p>
+
+
+<table class="table table-striped table-hover table-condensed" id="manageContainer">
+    <thead>
+        <tr>
+            <th>Column 1</th>
+            <th>Column 2</th>
+            <th>Column 3</th>
+            <th>Column 4</th>
+        </tr>
+    </thead>    
+    <tbody>
+    </tbody>
+</table>
+
+<div id="detailsContainer" class="mt-4">
+    <!-- Details will be loaded here -->
+</div>
+
+@section Scripts {
+
+    <script>
+
+        $(document).off('click', '.load-details').on('click', '.load-details', function () {
+            var itemId = $(this).data('id');
+            var url = $(this).data('url');
+            console.log("Loading details for item ID: " + itemId + " from URL: " + url);
+            $.get('/Admin/' + url, { id: itemId }, function (data) {
+                $('#detailsContainer').html(data);
+            }).fail(function () {
+                alert('Failed to load details. Please try again.');
+            });
+        });
+
+        $(function () {
+            $('#modelSelect').change(function () {
+                $('#detailsContainer').empty(); // Clear previous details
+                var partialPage = $(this).val();
+                console.log("Selected Partial Page: " + partialPage);
+                $.get('/Admin/' + partialPage, function (data) {
+                    $('#manageContainer').html(data);
+                    console.log("Loaded partial view for: " + partialPage);
+                    // Initialize scripts for the newly loaded partial view
+                    initializePartialViewScripts();
+                });
+            });
+        });
+
+        $(document).ready(function () {
+            // Trigger the change event to load the corresponding data
+            console.log("Initial Selected Model: " + '@ViewData["SelectedModel"]');
+            $('#modelSelect').trigger('change');
+        });
+
+        // Clear the detailsContainer when the cancel button is clicked
+        $(document).on('click', '.cancel-details', function (e) {
+            e.preventDefault(); // Prevent default link behavior
+            $('#detailsContainer').empty(); // Clear the details container
+        });
+
+        function initializePartialViewScripts() {
+            // Check if the partial view is loaded by verifying the presence of a specific element
+            console.log("Initializing scripts for the partial view.");
+            const partialViewContainer = document.getElementById("detailsContainer");
+            if (!partialViewContainer || partialViewContainer.innerHTML.trim() === "") {
+                console.warn("Partial view is not loaded. Exiting initializePartialViewScripts.");
+                return;
+            }
+
+            console.log("Partial view is loaded. Initializing scripts.");
+
+            // Function to compare initial and current values
+            function highlightChangedField(event) {
+                const input = event.target;
+                const initialInput = document.querySelector(`#initial${input.id}`);
+                if (initialInput) {
+                    // Compare the current value with the initial value
+                    if (input.type === "checkbox") {
+                        // Handle checkboxes
+                        if (input.checked.toString() !== initialInput.value) {
+                            input.classList.add("highlight");
+                            console.log(`Checkbox ${input.id} changed: ${input.checked} vs ${initialInput.value}`);
+                        } else {
+                            input.classList.remove("highlight");
+                            console.log(`Checkbox ${input.id} returned to its initial state: ${initialInput.value}`);
+                        }
+                    } else {
+                        // Handle other input types
+                        if (input.value !== initialInput.value) {
+                            input.classList.add("highlight");
+                            console.log(`Input ${input.id} changed: ${input.value} vs ${initialInput.value}`);
+                        } else {
+                            input.classList.remove("highlight");
+                            console.log(`Input ${input.id} returned to its initial state: ${initialInput.value}`);
+                        }
+                    }
+                }
+            }
+
+            // Attach event listeners to all inputs
+            const inputs = document.querySelectorAll("input, select, textarea");
+            inputs.forEach(input => {
+                input.addEventListener("input", highlightChangedField);
+                input.addEventListener("change", highlightChangedField);
+            });
+
+            // Run the function initially to check for pre-existing changes
+            inputs.forEach(input => {
+                const initialInput = document.querySelector(`#initial${input.id}`);
+                if (initialInput) {
+                    if (input.type === "checkbox") {
+                        if (input.checked.toString() !== initialInput.value) {
+                            input.classList.add("highlight");
+                        } else {
+                            input.classList.remove("highlight");
+                        }
+                    } else {
+                        if (input.value !== initialInput.value) {
+                            input.classList.add("highlight");
+                        } else {
+                            input.classList.remove("highlight");
+                        }
+                    }
+                }
+            });
+
+            // Function to toggle the value of EvaluationActive based on EvaluationActivecheck
+            function toggleTrueFalse(elementName) {
+                const hiddenInput = document.getElementById(`initial${elementName}`);
+                const checkbox = document.getElementById(elementName);
+                console.log(`Toggling ${elementName} based on initial${elementName}`);
+                if (!checkbox || !hiddenInput) {
+                    console.error("Checkbox or hidden input not found.");
+                    return;
+                }
+
+                checkbox.value = hiddenInput.value;
+
+            }
+
+            // Run the toggle function initially to set the correct value
+            toggleTrueFalse("EvaluationActive");
+            toggleTrueFalse("EvaluationTestEmails");
+        }
+
+    </script>
+}

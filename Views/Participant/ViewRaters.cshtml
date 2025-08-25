@@ -1,0 +1,485 @@
+@model ViewRatersViewModel
+
+@section Styles {
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+}
+
+@{
+    ViewBag.Title = "Your Raters";
+
+    // initialize the variables as this code will run on refreshes
+    var SelfCount = 0;
+    var SelfCompleted = 0;
+    var ManagerCount = 0;
+    var ManagerCompleted = 0;
+    var PeersCount = 0;
+    var PeersCompleted = 0;
+    var DirectReportsCount = 0;
+    var DirectReportsCompleted = 0;
+    var MaxPeers = (ViewBag.MaxRaters != 0) ? ViewBag.MaxRaters : 15; // Default to 15 if not set
+    var MaxDirectReports = (ViewBag.MaxRaters != 0) ? ViewBag.MaxRaters : 15; // Default to 15 if not set
+    var MaxManagers = 2;
+    var RoleName = "";
+    var CompletedText = "";
+    var buttonVisible = true;
+    var buttonActive = true;
+    var maxText = "";
+    var EvaluationTestEmails = false;
+
+    if (Model.Raters != null && Model.Raters.Any())
+    {
+        @foreach (var p in Model.Raters)
+        {
+            switch (p.ParticipantRoleId)
+            {
+                case 1:
+                SelfCount = SelfCount + p.EvaluationParticipantStatusIsActive;
+                SelfCompleted = SelfCompleted + p.EvaluationParticipantStatusIsComplete;
+                var EvaluationRateeId = p.EvaluationRateeId;
+                var EvaluationIsActive = p.EvaluationActive;
+                RoleName = p.ParticipantRoleName;
+                break;
+            case 2:
+                ManagerCount = ManagerCount + p.EvaluationParticipantStatusIsActive;
+                ManagerCompleted = ManagerCompleted + p.EvaluationParticipantStatusIsComplete;
+                RoleName = p.ParticipantRoleName;
+                break;
+            case 3:
+                PeersCount = PeersCount + p.EvaluationParticipantStatusIsActive;
+                PeersCompleted = PeersCompleted + p.EvaluationParticipantStatusIsComplete;
+                RoleName = p.ParticipantRoleName;
+                break;
+            case 4:
+                DirectReportsCount = DirectReportsCount + p.EvaluationParticipantStatusIsActive;
+                DirectReportsCompleted = DirectReportsCompleted + p.EvaluationParticipantStatusIsComplete;
+                RoleName = p.ParticipantRoleName;
+                break;
+            }
+        }
+    }
+}
+
+    <h3>Select your Raters</h3>
+
+    <div class="=table-responsive">
+    @foreach (var role in Model.ParticipantRoles)
+    {
+        buttonVisible = true;
+        buttonActive = true;
+
+        <table class="table table-striped table-hover" id="@role.ParticipantRoleName.Replace(" ", "")">
+            <thead>
+                <tr>
+                    @switch (role.ParticipantRoleId)
+                    {
+                        case 1:
+                            CompletedText = $"{SelfCompleted} of {SelfCount} completed";
+                            buttonVisible = false;
+                            maxText = "";
+                            break;
+                        case 2:
+                            CompletedText = $"{ManagerCompleted} of {ManagerCount} completed";
+                            if (ManagerCount < MaxManagers)
+                            {
+                                buttonVisible = true;
+                                buttonActive = false;
+                            }
+                            else
+                            {
+                                buttonVisible = true;
+                                buttonActive = true;
+                            }
+                            maxText = $" (max {MaxManagers})";
+                            break;
+                        case 3:
+                            CompletedText = $"{PeersCompleted} of {PeersCount} completed";
+                            if (PeersCount < MaxPeers)
+                            {
+                                buttonVisible = true;
+                                buttonActive = false;
+                            }
+                            else
+                            {
+                                buttonVisible = true;
+                                buttonActive = true;
+                            }
+                            maxText = $" (max {MaxPeers})";
+                            break;
+                        case 4:
+                            CompletedText = $"{DirectReportsCompleted} of {DirectReportsCount} completed";
+                            if (DirectReportsCount < MaxDirectReports)
+                            {
+                                buttonVisible = true;
+                                buttonActive = false;
+                            }
+                            else
+                            {
+                                buttonVisible = true;
+                                buttonActive = true;
+                            }
+                            maxText = $" (max {MaxDirectReports})";
+                            break;
+                    }
+                    <th class="col-md-2">@role.ParticipantRoleName.Replace(" ", "") @maxText</th>
+                    <th class="col-md-5">@CompletedText</th>
+                    <th class="col-md-3">
+                        @if (buttonVisible)
+                        {
+                            <button
+                                type="button"
+                                class="btn btn-primary @(!buttonActive ? "active" : "disabled")"
+                                data-bs-toggle="modal"
+                                data-bs-target="#addRaterModal"
+                                data-evaluationrateeid="@Model.EvaluationRateeId"
+                                data-rolename="@role.ParticipantRoleName">
+                                Select @role.ParticipantRoleName
+                            </button>
+                        }
+                    </th>
+                    <th class="col-md-1"> </th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Raters != null && Model.Raters.Any())
+                {
+                    @foreach (var p in Model.Raters.Where(r => r.ParticipantRoleId == role.ParticipantRoleId))
+                    {
+                        if (p.EvaluationTestEmails) 
+                        { 
+                            EvaluationTestEmails = true; 
+                        }
+
+                        <tr class="align-middle" data-evaluationrateeid="@p.EvaluationRateeId" data-participantid="@p.ParticipantId" data-evaluationparticipantstatusid="@p.EvaluationParticipantStatusId">
+                            <td  class="col-md-2" scope="row">@p.ParticipantNameLast, @p.ParticipantNameFirst</td>
+                            <td class="col-md-5">@p.ParticipantEmail</td>
+                        @if (p.EvaluationParticipantStatusIsComplete == 0 && p.EvaluationParticipantStatusIsActive == 1)    
+                        {
+                            <td class="col-md-3">@Html.Raw(p.EvaluationParticipantStatusDecoration) @p.EvaluationParticipantStatusName</td>
+                            @if (p.EvaluationParticipantStatusId == 1 && p.ParticipantRoleName  != "Self")
+                            {
+                            <td class="align-middle">
+                                <a class="btn btn-sm btn-small-nopad" href="#" role="button" onclick="deleteEvaluationParticipant('@p.EvaluationRateeId', '@p.ParticipantId', '@p.EvaluationId', '@p.Ratee')">
+                                    <i class="bi bi-exclamation-diamond" style="color: rgb(216, 51, 51);"></i> Remove
+                                </a>
+                            </td>
+                            }
+                            else
+                            {
+                            <td> </td>
+                            }
+                        }
+                        else 
+                        {
+                            <td class="col-md-3">@Html.Raw(p.EvaluationParticipantStatusDecoration) @p.EvaluationParticipantStatusName</td>
+                            <td> </td>
+                        }
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+        }
+    @{
+        if (EvaluationTestEmails)
+        {
+        <a class="btn btn-danger" hidden role="button" id="sendInvitationsButton" onclick="sendInvitations(true)">
+            <i class="bi bi-envelope"></i> Send Test Invitations
+        </a>
+        }
+        else
+        {
+        <a class="btn btn-primary" hidden role="button" id="sendInvitationsButton" onclick="sendInvitations(false)">
+            <i class="bi bi-envelope"></i> Send Invitations
+        </a>
+        }
+    }
+    </div>
+
+<h3>Instructions</h3>
+<p>
+    Remember to choose those individuals who you feel will provide both positive and constructive feedback. Here are a few guidelines:
+    <ul>
+        <li>You'll complete a self-survey, but you don't have to assign yourself; you'll get it automatically.</li>
+        <li>Your manager will also need to complete the survey. If you have two managers, you should add both.</li>
+        <li><em>Select all of your direct reports.</em> Input from many people is better than just a few, and you will avoid having to 
+                explain why some people were selected and not others.</li>
+        <li><em>Select at least five peers</em>—people you have worked closely with for some period of time, and who know your capabilities 
+                well. They will generally be about the same level as you, and they may or may not report to the same manager as you.</li>
+        <li>Avoid the temptation to select people you think might give you more favorable feedback during this 360 assessment. Be honest 
+            with yourself, and select people who know you very well.</li>
+    </ul>
+    The ratings made by peers and direct reports will be confidential in that you won't see individual ratings, but only the averages will be 
+    presented on your 360 degree feedback report. This is done to promote more accurate and honest feedback.
+</p>
+
+<!-- Modal -->
+<div class="modal fade" id="addRaterModal" tabindex="-1" aria-labelledby="addRaterModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-body">
+        <div class="mb-4">
+          <label for="raterSelect" class="form-label fw-bold">Search for your @RoleName</label>
+          <select id="raterSelect" class="form-select" style="width: 100%;">
+            <option value="">Start typing a name or email...</option>
+          </select>
+
+          <!-- New Rater Form -->
+          <div id="newRaterForm" class="mt-4 d-none">
+            <h6 class="mb-3">Add a new person</h6>
+            <form id="addNewRaterForm">
+              <div class="mb-3">
+                <label for="newRaterFirstName" class="form-label">First Name</label>
+                <input type="text" class="form-control" id="newRaterFirstName" name="FirstName" required />
+              </div>
+              <div class="mb-3">
+                <label for="newRaterLastName" class="form-label">Last Name</label>
+                <input type="text" class="form-control" id="newRaterLastName" name="LastName" required />
+              </div>
+              <div class="mb-3">
+                <label for="newRaterEmail" class="form-label">Email Address</label>
+                <input type="email" class="form-control" id="newRaterEmail" name="Email" required />
+              </div>
+              <button type="submit" class="btn btn-success">
+                <i class="bi bi-plus-circle"></i> Add @RoleName
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+    $(document).ready(function () {
+        $.fn.modal.Constructor.prototype.enforceFocus = function () {};
+
+        $('#addRaterModal').on('shown.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const evaluationRateeId = button.getAttribute('data-evaluationrateeid');
+            const rolename = button.getAttribute('data-rolename');
+
+            console.log(`Opening modal for role: ${rolename}`);
+
+            // Update the label dynamically
+            $('#addRaterModalLabel').text(`Search for your ${rolename}`);
+            $('label[for="raterSelect"]').text(`Search for your ${rolename}`);
+
+            loadEligibleRaters(evaluationRateeId, function (eligibleRaters) {
+                $('#raterSelect').empty();
+                eligibleRaters.forEach(function (r) {
+                    $('#raterSelect').append(new Option(r.text, r.id));
+                });
+                $('#raterSelect').val(null).trigger('change');
+            });
+
+
+
+            $('#raterSelect').select2({
+                placeholder: 'Start typing a name or email...',
+                minimumInputLength: 0,
+                width: '100%',
+                dropdownParent: $('#addRaterModal'),
+                language: {
+                    noResults: function () {
+                        return `<button id="addNewRaterButton" class="btn btn-link text-primary">Add a new ${rolename}</button>`;
+                    }
+                },
+                escapeMarkup: function (markup) {
+                    return markup; // Allow HTML in the noResults message
+                }
+            });
+
+            // Handle the selection of a participant
+            $('#raterSelect').on('select2:select', function (e) {
+                const selectedOption = e.params.data; // Get the selected participant
+                const participantId = selectedOption.id; // Participant ID
+                const participantName = selectedOption.text; // Participant Name
+
+                // Show the "Add [roleName]" button dynamically
+                const addButtonHtml = `
+                    <button id="addSelectedRaterButton" class="btn btn-success mt-3">
+                        Add ${rolename}: ${participantName}
+                    </button>
+                `;
+                $('#newRaterForm').html(addButtonHtml).removeClass('d-none').show();
+
+                // Attach a click event to the dynamically created button
+                $(document).off('click', '#addSelectedRaterButton').on('click', '#addSelectedRaterButton', function () {
+                    console.log(`Adding participant ${participantName} (${participantId}) as ${rolename} to evaluationRateeId: ${evaluationRateeId}`);
+                    // Send the selected participant to the server
+                    $.post('/Participant/AddRater', { evaluationRateeId, participantId, rolename }, function () {
+                    //    alert(`${rolename} added successfully!`);
+                        $('#addRaterModal').modal('hide'); // Close the modal
+                        location.reload(); // Reload the page to reflect changes
+                    }).fail(function () {
+                        alert('Failed to add the rater. Please try again.');
+                    });
+                });
+            });
+
+            // Show the "Add New Rater" form when no results are found
+            $('#raterSelect').on('select2:open', function () {
+                // Use event delegation to handle the dynamically created button
+                $(document).off('click', '#addNewRaterButton').on('click', '#addNewRaterButton', function (e) {
+                    e.preventDefault();
+                    $('#newRaterForm').removeClass('d-none').show(); // Show the "Add New Rater" form
+                    $('.select2-container').hide(); // Hide the Select2 dropdown
+                });
+            });
+
+            // Add a brief delay before opening Select2
+            setTimeout(function () {
+                $('#raterSelect').select2('open');
+
+                // Set focus to the Select2 search input
+                $('.select2-container--open .select2-search__field').focus();
+            }, 200); // 200ms delay
+
+            // Reset the form and dropdown when the modal is closed
+            $('#addRaterModal').on('hidden.bs.modal', function () {
+                $('#newRaterForm').addClass('d-none').hide();
+                $('#raterSelect').val(null).trigger('change');
+                $('.select2-container').show(); // Show the Select2 dropdown
+            });
+
+            // Handle the submission of the new rater form
+            $('#addNewRaterForm').on('submit', function (e) {
+                e.preventDefault();
+
+                const firstName = $('#newRaterFirstName').val();
+                const lastName = $('#newRaterLastName').val();
+                const email = $('#newRaterEmail').val();
+
+                console.log(`Adding new rater: ${firstName} ${lastName} (${email}) as role: ${rolename} and evaluationRateeId: ${evaluationRateeId}`);
+                // Send the new rater data to the server
+                $.post('/Participant/AddNewRater', { evaluationRateeId, firstName, lastName, email, rolename }, function (response) {
+                    alert('New rater added successfully!');
+                    $('#addRaterModal').modal('hide');
+                    location.reload(); // Reload the page to reflect changes
+                }).fail(function () {
+                    alert('Failed to add the rater. Please try again.');
+                });
+            });
+        });
+
+
+        $('#confirmAddForm').on('submit', function (e) {
+            e.preventDefault();
+            const participantId = $('#selectedParticipantId').val();
+
+            $.post('/Participant/AddRater', { participantId }, function () {
+            alert('Rater added!');
+            $('#addRaterModal').modal('hide');
+            location.reload();
+            });
+        });
+
+        // Check if there are participants with EvaluationParticipantStatusId=1 in Manager, Peer, and Direct Report tables
+        let hasPendingParticipants = false;
+
+        ['Manager', 'Peer', 'DirectReport'].forEach(function (tableId) {
+            $(`#${tableId} tbody tr`).each(function () {
+                const statusId = $(this).data('evaluationparticipantstatusid');
+                if (statusId === 1) {
+                    hasPendingParticipants = true;
+                    return false; // Exit loop early
+                }
+            });
+        });
+
+        if (hasPendingParticipants) {
+            $('#sendInvitationsButton').prop('hidden', false);
+        } else {
+            $('#sendInvitationsButton').prop('hidden', true);
+        }
+    });
+
+    function loadEligibleRaters(evaluationRateeId, callback) {
+        $.ajax({
+            url: `/Participant/GetEligibleRaters/${evaluationRateeId}`,
+            type: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                // Map the data to Select2 format
+                var eligibleRaters = data.map(function(r) {
+                    return {
+                        id: r.participantId,
+                        text: `${r.participantNameFirst} ${r.participantNameLast} (${r.participantEmail})`
+                    };
+                });
+                if (typeof callback === "function") {
+                    callback(eligibleRaters);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Failed to load eligible raters:', error);
+                if (typeof callback === "function") {
+                    callback([]);
+                }
+            }
+        });
+    }
+
+    function deleteEvaluationParticipant(evaluationRateeId, participantId, evaluationId, rateeId) {
+        if (confirm('Are you sure you want to delete this rater?')) {
+            $.ajax({
+                url: '/Participant/DeleteEvaluationParticipant',
+                type: 'POST',
+                data: { evaluationRateeId: evaluationRateeId, participantId: participantId, evaluationId: evaluationId, rateeId: rateeId },
+                success: function(response) {
+                    //alert(response);
+                    location.reload();
+                },
+                error: function(xhr) {
+                    alert('Error: ' + xhr.responseText);
+                }
+            });
+        }
+    }
+
+    function sendInvitations(isTest) {
+        const participantTuples = [];
+
+        alert(isTest);
+
+        // Collect EvaluationRateeId and ParticipantId tuples from Self, Manager, Peer, and Direct Report tables
+        ['Self', 'Manager', 'Peer', 'DirectReport'].forEach(function (tableId) {
+            $(`#${tableId} tbody tr`).each(function () {
+                const evaluationRateeId = $(this).data('evaluationrateeid');
+                const participantId = $(this).data('participantid');
+                const evaluationParticipantStatusId = $(this).data('evaluationparticipantstatusid');
+
+                if (evaluationParticipantStatusId == 1 && evaluationRateeId && participantId) {
+                    participantTuples.push({ evaluationRateeId, participantId });
+                }
+            });
+        });
+
+        console.log('Participant tuples to send:', participantTuples);
+
+        if (confirm('Are you sure you want to send invitations to these raters?')) {
+            // Send the tuples to the ProcessInvitations action
+            $.ajax({
+                url: '/Participant/ProcessInvitationsForParticipant',
+                type: 'POST',
+                //contentType: 'application/json',
+                data: { 
+                    blnTest: isTest, 
+                    participantTuples: JSON.stringify(participantTuples) 
+                },
+                success: function (response) {
+                    //alert('Invitations sent successfully!');
+                    location.reload();
+                },
+                error: function (xhr) {
+                    alert('Error: ' + xhr.responseText);
+                }
+            });
+        }
+    }
+</script>
+}

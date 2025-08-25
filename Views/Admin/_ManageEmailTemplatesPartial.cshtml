@@ -1,0 +1,38 @@
+@using reviews.Models
+
+@model IEnumerable<EmailTemplate>
+
+@if (Model != null && Model.Any())
+{
+    <table class="table table-striped table-hover table-condensed">
+        <thead>
+            <tr>
+                <th>Email Template Name</th>
+                <th>Client</th>
+                <th>From Name</th>
+                <th>Content</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr class="align-middle">
+                <td>@item.EmailTemplateName</td>
+                <td>@item.Client?.ClientName</td>
+                <td>@item.EmailFromName</td>
+                <td>@item.EmailTemplateContent.Substring(0, 25)...</td>
+                <td>
+                    <button class="btn btn-sm btn-primary load-details" data-url="GetEmailTemplateDetails" data-id="@item.EmailTemplateId">
+                        <i class="bi bi-pencil-square"></i> Details
+                    </button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+else
+{
+    <span class="form-control-plaintext">Nothing returned. </span>
+}

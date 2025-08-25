@@ -1,0 +1,543 @@
+{
+  "title": "Leadership Competency Survey",
+  "description": "The Leadership Assessment is a 360-degree feedback process through which information is gathered about a participant's behavior at work from colleagues, direct reports, and manager. This survey will ask you specific questions about the person listed above.",
+  "pages": [
+    {
+      "name": "page1",
+      "title": "How familiar are you with this person?",
+      "description": "To start, we need to get a sense of how well you know the person you are being asked to rate.",
+      "elements": [
+        {
+          "type": "radiogroup",
+          "name": "question1",
+          "title": "How well would you say that you know the performance of the individual you are rating?",
+          "isRequired": true,
+          "choices": [
+            {
+              "value": "Item 1",
+              "text": "Extremely well"
+            },
+            {
+              "value": "Item 2",
+              "text": "Very well"
+            },
+            {
+              "value": "Item 3",
+              "text": "Pretty well"
+            },
+            {
+              "value": "Item 4",
+              "text": "Not too well"
+            },
+            {
+              "value": "Item 5",
+              "text": "Note well at all"
+            }
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "question2",
+          "title": "Compared to other people doing the same work, how effective would you say this person is?",
+          "isRequired": true,
+          "choices": [
+            {
+              "value": "Item 1",
+              "text": "In the first quartile (top 25%)"
+            },
+            {
+              "value": "Item 2",
+              "text": "In the second quartile"
+            },
+            {
+              "value": "Item 3",
+              "text": "In the third quartile"
+            },
+            {
+              "value": "Item 4",
+              "text": "In the fourth quartile (bottom 25%)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "page2",
+      "title": "Characteristics of this leader",
+      "description": "If you feel you cannot rate the person on a particular behavior, please select \"Don't know\"",
+      "elements": [
+        {
+          "type": "matrix",
+          "name": "question3",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Translates",
+              "text": "Translates the organization vision into realistic business strategies and links to larger organizational efforts."
+            },
+            {
+              "value": "Paints",
+              "text": "Paints a compelling picture to others of what the future could be, promoting the vision through word and action."
+            },
+            {
+              "value": "Chooses ",
+              "text": " Paints a compelling picture to others of what the future could be, promoting the vision through word and action."
+            }
+          ]
+        },
+        {
+          "type": "matrix",
+          "name": "question4",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Understands local",
+              "text": "Understands how work and decisions made locally can have farther reaching impact."
+            },
+            {
+              "value": "Understands global",
+              "text": "Understands global markets and uses that knowledge to effectively build and execute business plans."
+            },
+            {
+              "value": "Recognizes ",
+              "text": "Recognizes differences, and adjusts style to align with different cultures."
+            }
+          ]
+        },
+        {
+          "type": "matrix",
+          "name": "question5",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Conversant",
+              "text": "Is thoroughly conversant regarding major aspects of own business unit operations, technical developments, systems, etc."
+            },
+            {
+              "value": "Broad knowledge",
+              "text": "Demonstrates broad knowledge of the business, markets, competitor position, products and technologies."
+            },
+            {
+              "value": "Anticipates ",
+              "text": "Anticipates future trends and how these changes in the global marketplace may affect Momentive."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "page3",
+      "title": "Characteristics of this leader",
+      "description": "If you feel you cannot rate the person on a particular behavior, please select \"Don't know\"",
+      "elements": [
+        {
+          "type": "matrix",
+          "name": "question6",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Diversity",
+              "text": "Respects diversity of talent and understands its value."
+            },
+            {
+              "value": "Development plans",
+              "text": "Has accurate and actionable succession and development plans for each member of the team."
+            },
+            {
+              "value": "Coaching",
+              "text": "Takes the initiative to provide coaching and feedback to others."
+            }
+          ]
+        },
+        {
+          "type": "matrix",
+          "name": "question7",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Commitment",
+              "text": "Gains commitment from others before implemnting changes."
+            },
+            {
+              "value": "Transparency",
+              "text": "Acts with honesty and transparency."
+            },
+            {
+              "value": "Respect",
+              "text": "Demonstrates respect for alternative opinions; values openness and candor."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "page4",
+      "title": "Characteristics of this leader",
+      "description": "If you feel you cannot rate the person on a particular behavior, please select \"Don't know\"",
+      "elements": [
+        {
+          "type": "matrix",
+          "name": "question8",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Trusting",
+              "text": "Appropriately pushes decision making down, allowing others to develop their decision making and accountability."
+            },
+            {
+              "value": "Micromanaging",
+              "text": "Does not micro-manage others' work."
+            },
+            {
+              "value": "Automony",
+              "text": "Creates a climate that encourages autonomy."
+            }
+          ]
+        },
+        {
+          "type": "matrix",
+          "name": "question9",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Conflict management",
+              "text": "Effectively manages conflict for the best outcome."
+            },
+            {
+              "value": "Listens",
+              "text": "Effectively listens, clarifies, and finds common ground."
+            },
+            {
+              "value": "Conflict",
+              "text": "Deals with conflicts directly and in a timely manner."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "page5",
+      "title": "Characteristics of this leader",
+      "description": "If you feel you cannot rate the person on a particular behavior, please select \"Don't know\"",
+      "elements": [
+        {
+          "type": "matrix",
+          "name": "question10",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Understanding",
+              "text": "Ensures understanding of messages received and provided."
+            },
+            {
+              "value": "Safety",
+              "text": "Keeps others informed about safety-related information (e.g., big picture as well as detail)."
+            },
+            {
+              "value": "Constructive communication",
+              "text": "Actively listens and creates an atmosphere for constructive communication."
+            }
+          ]
+        },
+        {
+          "type": "matrix",
+          "name": "question11",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Values",
+              "text": "Appeals to other's most important values and beliefs."
+            },
+            {
+              "value": "Nehind the scenes",
+              "text": "Builds \"behind-the-scenes\" support for ideas (e.g., socializes ideas to gain support before a meeting)."
+            },
+            {
+              "value": "Ethical decision making",
+              "text": "Uses ethical considerations to guide decisions and actions."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "page6",
+      "title": "Characteristics of this leader",
+      "description": "If you feel you cannot rate the person on a particular behavior, please select \"Don't know\"",
+      "elements": [
+        {
+          "type": "matrix",
+          "name": "question12",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Motivation",
+              "text": "Motivates others to achieve extraordinary levels of accomplishment both in terms of performance as well as their own development."
+            },
+            {
+              "value": "Enthusiasm",
+              "text": "Sets high standards and communicates about objectives enthusiastically."
+            },
+            {
+              "value": "Articulation",
+              "text": "Articulates a compelling vision and communicates confidence about achieving it."
+            }
+          ]
+        },
+        {
+          "type": "matrix",
+          "name": "question13",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Status quo",
+              "text": "Constructively questions the status quo by questioning assumptions that have been used previously."
+            },
+            {
+              "value": "Problem solving",
+              "text": "Encourages others to approach problems from many angles perhaps not previously considered."
+            },
+            {
+              "value": "Perspective",
+              "text": "Offers help and information to enlarge the perspective used by others to understand problems."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "page7",
+      "title": "Characteristics of this leader",
+      "description": "If you feel you cannot rate the person on a particular behavior, please select \"Don't know\"",
+      "elements": [
+        {
+          "type": "matrix",
+          "name": "question14",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Simplifies",
+              "text": "Simplifies complex problems/strategies into actionable items."
+            },
+            {
+              "value": "Urgency",
+              "text": "Demonstrates a sense of urgency by focusing on the most important priorities."
+            },
+            {
+              "value": "Achievement",
+              "text": "Achieves results in a manner consistent with company's strategy and Core Values."
+            }
+          ]
+        },
+        {
+          "type": "matrix",
+          "name": "question15",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Step-by-step",
+              "text": "Follows an organized, step-based approach to manage change in the organization."
+            },
+            {
+              "value": "Positivity",
+              "text": "Positively engages, motivates and influences others around change initiatives."
+            },
+            {
+              "value": "Discouragement",
+              "text": "Does not get discouraged easily in the face of change and/or industry volatility."
+            }
+          ]
+        },
+        {
+          "type": "matrix",
+          "name": "question16",
+          "title": "How characteristic is this behavior of this individual?",
+          "isRequired": true,
+          "columns": [
+            "Not at all characteristic",
+            "2",
+            "3",
+            "Somewhat characteristic",
+            "5",
+            "6",
+            "Very characteristic",
+            "Don't know"
+          ],
+          "rows": [
+            {
+              "value": "Learns from mistakes",
+              "text": "Actively seeks feedback and is open to learning from mistakes."
+            },
+            {
+              "value": "Reflection",
+              "text": "Reflects on feedback from others and adjusts behavior accordingly."
+            },
+            {
+              "value": "Adjusts",
+              "text": "Adjusts quickly and efficiently to organizational changes/shifts in strategy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "page8",
+      "title": "Leadership Characteristics",
+      "elements": [
+        {
+          "type": "comment",
+          "name": "question17",
+          "title": "What do you think are this person's greatest strengths?"
+        },
+        {
+          "type": "comment",
+          "name": "question18",
+          "title": "What should this person be working on to be a more effective leader?"
+        }
+      ]
+    }
+  ]
+}

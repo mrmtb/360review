@@ -1,0 +1,37 @@
+@model IEnumerable<reviews.Models.Client>
+
+@{
+    ViewBag.Title = "Clients";
+}
+
+<h2>Clients</h2>
+<a asp-action="Create" class="btn btn-primary">Add New Client</a>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Logo</th>
+            <th>Help Contact</th>
+            <th>Active</th>
+            <th>Email Domain</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var client in Model)
+        {
+            <tr>
+                <td>@client.ClientName</td>
+                <td>@client.ClientLogoLocation</td>
+                <td>@client.ClientHelpContact</td>
+                <td>@client.ClientIsActive</td>
+                <td>@client.ClientEmailDomain</td>
+                <td>
+                    <a asp-action="Details" asp-route-id="@client.ClientId" class="btn btn-info">Details</a>
+                    <a asp-action="Edit" asp-route-id="@client.ClientId" class="btn btn-warning">Edit</a>
+                    <a asp-action="Delete" asp-route-id="@client.ClientId" class="btn btn-danger">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

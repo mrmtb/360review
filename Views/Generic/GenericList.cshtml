@@ -1,0 +1,53 @@
+@* GenericList.cshtml *@
+@using System.Reflection
+@model IEnumerable<object>
+@{
+    ViewBag.Title = "Dynamic List";
+    var modelType = Model?.FirstOrDefault()?.GetType();
+    var properties = modelType?.GetProperties().ToList();
+    var idProperty = properties?.FirstOrDefault(p => p.PropertyType == typeof(Guid) || p.PropertyType == typeof(int));
+}
+
+<div class="container mt-4">
+    <h3>@modelType?.Name List</h3>
+    <a asp-action="Create" asp-route-modelName="@modelType?.Name" class="btn btn-success mb-3">
+        <i class="bi bi-plus-circle"></i> Create New
+    </a>
+
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                @foreach (var prop in properties?.Take(5) ?? Enumerable.Empty<PropertyInfo>())
+                {
+                    <th>@prop.Name</th>
+                }
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model != null)
+            {
+                foreach (var item in Model)
+                {
+                    <tr>
+                        @foreach (var prop in properties!.Take(5))
+                        {
+                            <td>@(prop.GetValue(item))</td>
+                        }
+                        <td>
+                            @if (@modelType != null)
+                            {
+                                <a asp-action="Edit" asp-route-modelName="@modelType.Name" asp-route-id="@idProperty?.GetValue(item)" class="btn btn-warning btn-sm">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </a>
+                                <a asp-action="Delete" asp-route-modelName="@modelType?.Name" asp-route-id="@idProperty?.GetValue(item)" class="btn btn-danger btn-sm">
+                                    <i class="bi bi-trash"></i> Delete
+                                </a>
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>

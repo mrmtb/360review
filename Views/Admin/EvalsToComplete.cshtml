@@ -1,0 +1,17 @@
+@model List<reviews.Models.vwEvaluationsToComplete>
+
+<h4>Evaluations to Complete</h4>
+
+@if (Model == null || !Model.Any())
+{
+    <p>No evaluations found.</p>
+}
+else
+{
+    <ul>
+        @foreach (var eval in Model)
+        {
+            <li>@eval.ParticipantRoleName - Due: @eval.DueDate</li>
+        }
+    </ul>
+}

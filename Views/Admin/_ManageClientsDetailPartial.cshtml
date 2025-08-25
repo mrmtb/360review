@@ -1,0 +1,62 @@
+@model reviews.Models.Client
+
+<div class="card">
+    <div class="card-header">
+        <h5>Details for @Model.ClientName</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" asp-controller="Admin" asp-action="UpdateClient">
+            <input type="hidden" name="selectedModel" value="@ViewData["SelectedModel"]" />
+            <input type="hidden" name="ClientId" value="@Model.ClientId" />
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="ClientIsActive">Client Is Active?</label>
+                    <div class="col">
+                        <input type="hidden" class="form-check-input" name="initialClientIsActive" id="initialClientIsActive" value="@(Model.ClientIsActive ? "true" : "false")"  />
+                        <select class="form-select" id="ClientIsActive" name="ClientIsActive">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+            </div>  
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="ClientName">Client Name</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialClientName" id="initialClientName" value="@Model.ClientName" />
+                        <input type="text" class="form-control" name="ClientName" id="ClientName" value="@Model.ClientName" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="ClientLogo">Client Logo</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialClientLogoLocation" id="initialClientLogoLocation" value="@Model.ClientLogoLocation" />
+                        <input type="text" class="form-control" name="ClientLogoLocation" id="ClientLogoLocation" value="@Model.ClientLogoLocation" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="ClientHelpContact">Client Help Contact</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialClientHelpContact" id="initialClientHelpContact" value="@Model.ClientHelpContact" />
+                        <input type="text" class="form-control" name="ClientHelpContact" id="ClientHelpContact" value="@Model.ClientHelpContact" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="ClientEmailDomain">Client Email Domain</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialClientEmailDomain" id="initialClientEmailDomain" value="@Model.ClientEmailDomain" />
+                        <input type="text" class="form-control" name="ClientEmailDomain" id="ClientEmailDomain" value="@Model.ClientEmailDomain" />
+                    </div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> Save
+            </button>
+            <a class="btn btn-secondary ms-2 cancel-details" href="#">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+        </form>
+    </div>
+</div>
+
+<script>
+        // Call the initialization function to set up event listeners and initial state
+        //initializePartialViewScripts();
+</script>

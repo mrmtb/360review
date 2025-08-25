@@ -1,0 +1,61 @@
+@* GenericForm.cshtml *@
+@model object
+@{
+    ViewBag.Title = "Dynamic Form";
+    var modelType = Model.GetType();
+    var properties = modelType.GetProperties().ToList();
+    var idProperty = properties.FirstOrDefault(p => p.PropertyType == typeof(Guid) || p.PropertyType == typeof(int));
+    var isEdit = idProperty != null && (
+        (idProperty.PropertyType == typeof(Guid) && idProperty.GetValue(Model) is Guid guid && guid != Guid.Empty) ||
+        (idProperty.PropertyType == typeof(int) && Convert.ToInt32(idProperty.GetValue(Model)) > 0)
+    );
+}
+
+<div class="container mt-4">
+    <h3>@(isEdit ? "Edit" : "Create") @modelType.Name</h3>
+    <form method="post">
+        @foreach (var prop in properties)
+        {
+            var val = prop.GetValue(Model);
+            var isHidden = prop == idProperty;
+            var isCollection = typeof(System.Collections.IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType != typeof(string);
+            var isComplex = prop.PropertyType.IsClass && prop.PropertyType != typeof(string);
+
+            if (isHidden || isCollection || isComplex)
+            {
+                <input type="hidden" name="@prop.Name" value="@val" />
+                continue;
+            }
+
+            <div class="mb-3">
+                <label class="form-label fw-bold" for="@prop.Name">@prop.Name</label>
+
+                @if (prop.PropertyType == typeof(bool))
+                {
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" name="@prop.Name" id="@prop.Name" value="true" @(val is true ? "checked" : "") />
+                        <label class="form-check-label" for="@prop.Name">Yes</label>
+                    </div>
+                }
+                else if (prop.PropertyType == typeof(DateTime) || prop.PropertyType == typeof(DateTime?))
+                {
+                    <input type="datetime-local" class="form-control" name="@prop.Name" id="@prop.Name" value="@(val is DateTime dt ? dt.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                }
+                else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(double) || prop.PropertyType == typeof(decimal))
+                {
+                    <input type="number" class="form-control" name="@prop.Name" id="@prop.Name" value="@val" />
+                }
+                else
+                {
+                    <input type="text" class="form-control" name="@prop.Name" id="@prop.Name" value="@val" />
+                }
+            </div>
+        }
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Save
+        </button>
+        <a asp-controller="Generic" asp-action="Index" asp-route-modelName="@modelType.Name" class="btn btn-secondary ms-2">
+            <i class="bi bi-x-circle"></i> Cancel
+        </a>
+    </form>
+</div>

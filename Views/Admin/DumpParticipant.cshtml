@@ -1,0 +1,81 @@
+@model object
+
+@functions {
+    private static int _tableId = 0;
+    public static Microsoft.AspNetCore.Mvc.Razor.HelperResult RenderProperties(object obj, int level = 0, HashSet<object>? visited = null)
+    {
+        visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
+        int tableId = ++_tableId;
+
+        return new Microsoft.AspNetCore.Mvc.Razor.HelperResult(async writer => {
+            if (obj == null || visited.Contains(obj)) return;
+            visited.Add(obj);
+
+            var type = obj.GetType();
+            var props = type.GetProperties();
+
+            await writer.WriteAsync($@"<table class=""table table-bordered table-sm nested-table"" data-tableid=""{tableId}"" style=""margin-left:{level * 20}px"">
+                <thead><tr><th colspan=""2"">{type.Name}</th></tr></thead>
+                <tbody>");
+            foreach (var prop in props)
+            {
+                var val = prop.GetValue(obj);
+                if (val == null || prop.PropertyType.IsPrimitive || prop.PropertyType == typeof(string) || prop.PropertyType == typeof(DateTime) || prop.PropertyType == typeof(Guid))
+                {
+                    await writer.WriteAsync($@"<tr><td>{prop.Name}</td><td>{(val?.ToString() ?? "&lt;null&gt;")}</td></tr>");
+                }
+                else if (typeof(System.Collections.IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType != typeof(string))
+                {
+                    int childId = ++_tableId;
+                    await writer.WriteAsync($@"<tr>
+                        <td colspan=""2"">
+                            <a href=""#"" class=""toggle-table"" data-target=""{childId}""><b>[+]</b> {prop.Name}</a>
+                            <div class=""nested-container"" id=""table-{childId}"" style=""display:none;"">");
+                    foreach (var item in (System.Collections.IEnumerable)val)
+                    {
+                        RenderProperties(item, level + 1, visited).WriteTo(writer, System.Text.Encodings.Web.HtmlEncoder.Default);
+                    }
+                    await writer.WriteAsync("</div></td></tr>");
+                }
+                else
+                {
+                    int childId = ++_tableId;
+                    await writer.WriteAsync($@"<tr>
+                        <td colspan=""2"">
+                            <a href=""#"" class=""toggle-table"" data-target=""{childId}""><b>[+]</b> {prop.Name}</a>
+                            <div class=""nested-container"" id=""table-{childId}"" style=""display:none;"">");
+                    RenderProperties(val, level + 1, visited).WriteTo(writer, System.Text.Encodings.Web.HtmlEncoder.Default);
+                    await writer.WriteAsync("</div></td></tr>");
+                }
+            }
+            await writer.WriteAsync("</tbody></table>");
+        });
+    }
+
+    public class ReferenceEqualityComparer : IEqualityComparer<object>
+    {
+        public static ReferenceEqualityComparer Instance { get; } = new ReferenceEqualityComparer();
+        public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+        public int GetHashCode(object? obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj!);
+    }
+}
+
+
+@RenderProperties(Model)
+@if (!string.IsNullOrEmpty(ViewBag.ReturnUrl))
+{
+    <a href="@ViewBag.ReturnUrl" class="btn btn-primary">Return to Previous Page</a>
+}
+
+@section Scripts {
+    <script>
+        $(document).on('click', '.toggle-table', function (e) {
+            e.preventDefault();
+            var target = $(this).data('target');
+            var $container = $('#table-' + target);
+            $container.toggle();
+            var $icon = $(this).find('b');
+            $icon.text($container.is(':visible') ? '[-]' : '[+]');
+        });
+    </script>
+}

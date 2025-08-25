@@ -1,0 +1,142 @@
+@using Microsoft.AspNetCore.Identity
+@using reviews.Services
+@using reviews.Models
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject ReviewSessionService _sessionService
+
+@{
+    var sessionData = _sessionService.GetSessionData();
+    var ClientLogoLocation = sessionData?.ClientLogoLocation ?? Url.Content("/images/Transparent-Logo-Horiz-1.png");
+    var ParticipantIsRatee = sessionData?.DefaultEvaluationId ?? -1;
+    var ParticipantHasReviews = sessionData?.OpenRatingCount ?? 0;
+    var UserName = "";
+
+    if (User != null)
+    {
+        UserName = UserManager.GetUserName(User);
+        if (!string.IsNullOrEmpty(UserName))
+        {
+            if (UserName.Contains("@"))
+            {
+                UserName = UserName.Substring(0, UserName.IndexOf("@"));
+            }
+            else if (UserName.Contains(","))
+            {
+                UserName = UserName.Substring(UserName.IndexOf(",") + 1);
+            }
+        }
+    }
+    else
+    {
+        UserName = "Guest";
+    }
+
+    @functions {
+        string GetActiveClass(string controller, string? action = null)
+        {
+            var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+            var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+
+            if (currentController == controller && (action == null || currentAction == action))
+            {
+                return "active";
+            }
+            return string.Empty;
+        }
+    }
+
+}
+
+                <li class="nav-item">
+                    <a class="nav-link text-white @GetActiveClass("Home", "Index")" id="home" href="/" title="Home" aria-current="page">
+                        <i class="bi pe-none bi-house-door me-2"></i> Home
+                    </a>
+                </li>
+
+
+@if (User != null && SignInManager.IsSignedIn(User))
+{
+    @if (User.IsInRole("Admin"))
+    {
+                <li class="nav-item">
+                    <a class="nav-link text-white @GetActiveClass("Admin", "ViewParticipants")" id="participants" asp-controller="Admin" asp-action="ViewParticipants" title="Participants">
+                        <i class="bi bi-person me-2"></i> Participants
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white @GetActiveClass("Admin", "ViewRatees")" id="ratees" asp-controller="Admin" asp-action="ViewRatees" title="Ratees">
+                        <i class="bi bi-person me-2"></i> Ratees
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white @GetActiveClass("Admin", "ViewInvitations")" id="invitations" asp-controller="Admin" asp-action="ViewInvitations" title="Invitations">
+                        <i class="bi bi-calendar-event me-2" width="16" height="16" aria-hidden="true"></i> Invitations
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white @GetActiveClass("Admin", "ViewReminders")" id="reminders" asp-controller="Admin" asp-action="ViewReminders" title="Reminders">
+                        <i class="bi bi-bell me-2" width="16" height="16" aria-hidden="true"></i> Reminders
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white @GetActiveClass("Admin", "EmailQueueDashboard")" id="emailQueue" asp-controller="Admin" asp-action="EmailQueueDashboard" title="Email Queue">
+                        <i class="bi bi-envelope me-2" width="16" height="16" aria-hidden="true"></i> Email Queue
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link text-white @GetActiveClass("Admin", "ManageIndex")" id="manage" asp-controller="Admin" asp-action="ManageIndex" title="Manage">
+                        <i class="bi bi-clipboard-data me-2" width="16" height="16" aria-hidden="true"></i> Manage
+                    </a>
+                </li>
+    }
+    @if (User.IsInRole("Participant"))
+    {
+        @if (ParticipantHasReviews > 0)
+        {
+            <li class="nav-item align-middle">
+                <a class="nav-link text-white @GetActiveClass("Participant", "ParticipantIndex")" id="ratees" asp-controller="Participant" asp-action="ParticipantIndex" title="Evals">
+                    <i class="bi bi-list-check me-2" width="16" height="16" aria-hidden="true"></i> Evaluations
+                    @if (ParticipantHasReviews > 0)
+                    {
+                        <span class="badge badge-pill badge-light">@ParticipantHasReviews</span>
+                    }
+                </a>
+            </li>
+        }
+        @if (ParticipantIsRatee != 0)
+        {
+            <li class="nav-item">
+                <a class="nav-link text-white @GetActiveClass("Participant", "ViewRaters")" id="ratees" asp-controller="Participant" asp-action="ViewRaters" title="Raters">
+                    <i class="bi bi-journal-text me-2" width="16" height="16" aria-hidden="true"></i> Raters
+                    @if (ParticipantIsRatee > 0)
+                    {
+                        <span class="badge badge-light">1</span>
+                    }
+                </a>
+            </li>
+        }
+    }
+    <li class="nav-item">
+        <a id="manage" class="nav-link text-white @GetActiveClass("Identity", "Manage")" asp-area="Identity" asp-page="/Account/Manage/Index" title="Hi @(UserName)!">
+            <i class="bi bi-person-circle me-2" width="16" height="16" aria-hidden="true"></i> Account</a>
+    </li>
+    <li class="nav-item">
+        <form id="logoutForm" class="form-inline" asp-controller="Home" asp-action="Logout" method="post">
+            <button id="logout" type="submit" class="nav-link text-white"><i class="bi bi-arrow-bar-left me-2" width="16" height="16" aria-hidden="true"></i> Logout</button>
+        </form>
+    </li>
+}
+else
+{
+    <li class="nav-item">
+        <a class="nav-link text-white @GetActiveClass("Identity", "Register")" id="register" asp-area="Identity" asp-page="/Account/Register">
+            <i class="bi bi-person-circle me-2" width="16" height="16" aria-hidden="true"></i> Register</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link text-white @GetActiveClass("Identity", "Login")" id="login" asp-area="Identity" asp-page="/Account/Login">
+            <i class="bi bi-arrow-bar-right me-2" width="16" height="16" aria-hidden="true"></i> Login</a>
+    </li>
+}

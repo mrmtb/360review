@@ -1,0 +1,53 @@
+@model reviews.Models.EmailTemplate
+
+<div class="card">
+    <div class="card-header">
+        <h5>Details for @Model.EmailTemplateName</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" asp-controller="Admin" asp-action="UpdateEmailTemplate">
+            <input type="hidden" name="selectedModel" value="@ViewData["SelectedModel"]" />
+            <input type="hidden" name="EmailTemplateId" value="@Model.EmailTemplateId" />
+            <input type="hidden" name="ClientId" value="@Model.ClientId" />
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EmailTemplateName">Email Template Name</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEmailTemplateName" id="initialEmailTemplateName" value="@Model.EmailTemplateName" />
+                        <input type="text" class="form-control" name="EmailTemplateName" id="EmailTemplateName" value="@Model.EmailTemplateName" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EmailTemplateFrom">Email Template From</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEmailFromName" id="initialEmailFromName" value="@Model.EmailFromName" />
+                        <input type="text" class="form-control" name="EmailFromName" id="EmailFromName" value="@Model.EmailFromName" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EmailSubject">Email Subject</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEmailSubject" id="initialEmailSubject" value="@Model.EmailSubject" />
+                        <input type="text" class="form-control" name="EmailSubject" id="EmailSubject" value="@Model.EmailSubject" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EmailTemplateContent">Email Template Content</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEmailTemplateContent" id="initialEmailTemplateContent" value="@Model.EmailTemplateContent" />
+                        <textarea class="form-control" name="EmailTemplateContent" id="EmailTemplateContent" rows="8">@Model.EmailTemplateContent</textarea>
+                    </div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> Save
+            </button>
+            <a class="btn btn-secondary ms-2 cancel-details" href="#">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+        </form>
+    </div>
+</div>
+
+<script>
+        // Call the initialization function to set up event listeners and initial state
+        //initializePartialViewScripts();
+</script>

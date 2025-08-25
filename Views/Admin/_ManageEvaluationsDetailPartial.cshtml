@@ -1,0 +1,96 @@
+@model reviews.Models.Evaluation
+
+<div class="card">
+    <div class="card-header">
+        <h5>Details for @Model.EvaluationName</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" asp-controller="Admin" asp-action="UpdateEvaluation">
+            <input type="hidden" name="selectedModel" value="@ViewData["SelectedModel"]" />
+            <input type="hidden" name="EvaluationId" value="@Model.EvaluationId" />
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EvaluationActive">Evaluation Active?</label>
+                    <div class="col">
+                        <input type="hidden" class="form-check-input" name="initialEvaluationActive" id="initialEvaluationActive" value="@(Model.EvaluationActive ? "true" : "false")"  />
+                        <select class="form-select" id="EvaluationActive" name="EvaluationActive">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+            </div>  
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EvaluationName">Evaluation Name</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEvaluationName" id="initialEvaluationName" value="@Model.EvaluationName" />
+                        <input type="text" class="form-control" name="EvaluationName" id="EvaluationName" value="@Model.EvaluationName" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EvaluationFolder">Evaluation Folder</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEvaluationFolder" id="initialEvaluationFolder" value="@Model.EvaluationFolder" />
+                        <input type="text" class="form-control" name="EvaluationFolder" id="EvaluationFolder" value="@Model.EvaluationFolder" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EvaluationHelpContact">Evaluation Help Contact</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEvaluationHelpContact" id="initialEvaluationHelpContact" value="@Model.EvaluationHelpContact" />
+                        <input type="text" class="form-control" name="EvaluationHelpContact" id="EvaluationHelpContact" value="@Model.EvaluationHelpContact" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EvaluationMaxRaters">Evaluation Max Raters</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEvaluationMaxRaters" id="initialEvaluationMaxRaters" value="@Model.EvaluationMaxRaters" />
+                        <input type="number" class="form-control" name="EvaluationMaxRaters" id="EvaluationMaxRaters" value="@Model.EvaluationMaxRaters" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EvaluationOpenDate">Evaluation Open Date</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEvaluationOpenDate" id="initialEvaluationOpenDate" value="@(@Model.EvaluationOpenDate is DateTime dt1 ? dt1.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                        <input type="datetime-local" class="form-control" name="EvaluationOpenDate" id="EvaluationOpenDate" value="@(@Model.EvaluationOpenDate is DateTime dt2 ? dt2.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EvaluationRateeDueDate">Evaluation Ratee Due Date</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEvaluationRateeDueDate" id="initialEvaluationRateeDueDate" value="@(@Model.EvaluationRateeDueDate is DateTime dt3 ? dt3.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                        <input type="datetime-local" class="form-control" name="EvaluationRateeDueDate" id="EvaluationRateeDueDate" value="@(@Model.EvaluationRateeDueDate is DateTime dt4 ? dt4.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EvaluationRaterDueDate">Evaluation Rater Due Date</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEvaluationRaterDueDate" id="initialEvaluationRaterDueDate" value="@(@Model.EvaluationRaterDueDate is DateTime dt5 ? dt5.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                        <input type="datetime-local" class="form-control" name="EvaluationRaterDueDate" id="EvaluationRaterDueDate" value="@(@Model.EvaluationRaterDueDate is DateTime dt6 ? dt6.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                    </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="EvaluationTestEmails">Evaluations Test Email</label>
+                    <div class="col">
+                        <input type="hidden" class="form-control" name="initialEvaluationTestEmails" id="initialEvaluationTestEmails" value="@(@Model.EvaluationTestEmails ? "true" : "false")" />
+                        <select class="form-select" id="EvaluationTestEmails" name="EvaluationTestEmails">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+            </div>
+            <div class="mb-3">
+                    <input type="hidden" class="form-control" name="ClientId" id="ClientId" value="@Model.ClientId" />
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> Save
+            </button>
+            <a class="btn btn-secondary ms-2 cancel-details" href="#">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+        </form>
+    </div>
+</div>
+
+<script>
+        // Call the initialization function to set up event listeners and initial state
+        initializePartialViewScripts();
+</script>

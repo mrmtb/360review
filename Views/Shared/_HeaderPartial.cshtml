@@ -1,0 +1,15 @@
+@using Microsoft.AspNetCore.Identity
+@using reviews.Services
+@using reviews.Models
+
+@inject ReviewSessionService _sessionService
+
+@{
+    var sessionData = _sessionService.GetSessionData();
+    var ClientLogoLocation = (sessionData?.ClientLogoLocation == null 
+                              || sessionData?.ClientLogoLocation == "") 
+                              ? Url.Content("/images/Transparent-Logo-Horiz-1.png") 
+                              : sessionData?.ClientLogoLocation;
+}
+
+        <img src="@ClientLogoLocation" alt="Client Logo" height="45" class="logo mb-2" />

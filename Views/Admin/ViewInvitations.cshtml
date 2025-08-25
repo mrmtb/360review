@@ -1,0 +1,57 @@
+@model IEnumerable<vwInvitations>
+
+@{
+    ViewBag.Title = "Manage Invitations";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+}
+
+<h4>Invitation Queue</h4>
+
+<a asp-action="ProcessInvitations" class="btn btn-primary mb-3" title="Process Invitations">
+    <i class="bi bi-envelope-plus"></i> Process Invitations
+</a>
+
+<table class="table table-hover table-striped align-middle shadow-sm rounded" id="invitationsTable">
+    <thead class="table-light">
+        <tr>
+            <th>Recipient</th>
+            <th>Role</th>
+            <th>Ratee</th>
+            <th>Client Name</th>
+            <th>Email Type</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+
+    @foreach (var p in Model)
+    {
+        <tr class="align-middle">
+            <td>@p.RaterLastName, @p.RaterFirstName</td>
+            <td>@p.RaterRole</td>
+            <td>@p.RateeLastName, @p.RateeFirstName</td>
+            <td>@p.ClientName</td>
+            <td>@p.MessageToSend</td>
+            <td>
+                <a asp-action="InviteParticipant" asp-controller="Admin" 
+                   asp-route-evaluationRateeId="@p.EvaluationRateeId" 
+                   asp-route-participantId="@p.RaterParticipantId" 
+                   class="btn btn-sm">
+                    <i class="bi bi-calendar-event"></i>&nbsp;Invite
+                </a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<nav>
+    <ul class="pagination justify-content-center pagination-sm" id="pagination"></ul>
+</nav>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"> </script>
+}

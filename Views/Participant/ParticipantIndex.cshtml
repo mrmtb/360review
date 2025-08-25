@@ -1,0 +1,91 @@
+@model IEnumerable<vwEvaluationsToComplete>
+
+@{
+    ViewBag.Title = "Evaluations to Complete";
+}
+
+    <h3>Evaluations to complete:</h3>
+
+    <p>Thank you for providing feedback. You have an opportunity to help these individuals enhance their performance by providing honest, objective feedback.</p>
+
+    <div class="=table-responsive">
+        <table class="table table-striped table-hover" id="EvaluationsTable">
+            <thead>
+                <tr>
+                    <th>Ratee Name</th>
+                    <th>Completing As</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var p in Model)
+            {
+                <tr class="align-middle">
+                @if (p.EvaluationParticipantStatusIsComplete == 0 && p.EvaluationParticipantStatusIsActive == 1)    
+                {
+                    <th scope="row">@p.ParticipantNameLast, @p.ParticipantNameFirst (@p.ParticipantEmail)</th>
+                }
+                else 
+                {
+                    <td>@p.ParticipantNameLast, @p.ParticipantNameFirst (@p.ParticipantEmail)</td>
+                }
+                    <td>@p.ParticipantRoleName</td>
+                    <td>@p.DueDate?.ToString("g")</td>
+                @if (p.EvaluationParticipantStatusIsComplete == 0 && p.EvaluationParticipantStatusIsActive == 1)    
+                {
+                    <td>@(Html.Raw(p.EvaluationParticipantStatusDecoration)) @p.EvaluationParticipantStatusName</td>
+                    <td>
+                    @if (p.ParticipantRoleName == "Self")
+                    {
+                        <a asp-action="LaunchEvaluation" asp-controller="Participant" asp-route-evaluationRateeId="@p.EvaluationRateeId" asp-route-participantId="@p.ParticipantId" class="btn btn-primary btn-sm">
+                            <i class="bi bi-play"></i> Launch
+                        </a>
+                    }
+                    else
+                    {
+                        <a asp-action="OptOutEvaluation" asp-controller="Participant" asp-route-evaluationId="@p.EvaluationId" class="btn btn-sm">
+                            <i class="bi bi-diamond-exclamation" style="color: rgb(216, 51, 51);"></i> Opt-out</a>
+                    }
+                    </td>
+                }
+                else 
+                {
+                    <td>@(Html.Raw(p.EvaluationParticipantStatusDecoration)) @p.EvaluationParticipantStatusName</td>
+                    <td> </td>
+                }
+                </tr>
+    }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="">
+        <h5>Confidentiality Statement:</h5>
+        <p>The information you provide will be confidential. Unless you are this person's manager, your ratings will be combined with those of at least two other people before being reported. Only the person to whom you are providing feedback will receive the individual feedback report. With the exception of an executive coach, no one will get a copy of an individual's feedback report unless he or she personally releases the report. Data from individual feedback reports will be aggregated in various ways, such as by business unit or geography, to provide trend analysis and information for research purposes and for development initiatives.</p>
+
+        <h6>Instructions:</h6>
+        <p>You can give meaningful feedback by doing the following:</p>
+
+        <h6>Read Questions Carefully:</h6>
+        <blockquote>The behaviors you are evaluating are necessarily complex to reflect the role of your leaders. Please make sure you understand each item before you rate it. 
+        <ul><li>If the behavior includes &quot;AND,&quot; only rate the behavior as characteristic if the person shows BOTH aspects of the behavior.</li>
+        <li>Many of these behaviors are very difficult. We do not expect leaders to have mastered all of them. Keep this in mind as you make your ratings, as most leaders will excel in some areas more so than others.</li></ul>
+        </blockquote>
+
+        <h6>Think of Real Examples:</h6>
+        <blockquote>
+        <ul><li>Think of when you have seen the person actually exhibit the behavior you are rating. Use this as your basis for making an assessment.</li>
+        <li>If this person has exhibited the behavior only once, then it is NOT very characteristic of this leader (and should be rated a 1 on the 5 pt scale - &quot;Not characteristic&quot;).</li></ul>
+        </blockquote>
+
+        <h6>Make your Ratings Appropriately:</h6>
+        <blockquote><ul><li>Give favorable ratings ONLY where warranted.</li>
+        <li>Try to be conscious of common errors raters make - like inappropriately generalizing all ratings based on the individual's performance in one area</li>
+        <li>To differentiate a person's strengths, distribute your ratings widely.</li></ul>
+        <p>Please respond to all of the items. If for some reason an item does not apply to this individual, simply choose the 'Don't Know' option. NOTE: If you choose 'Don't Know' for more than 20% of the questions, your survey will not be included in the feedback.</p>
+        <p>You can return to these survey instructions at any time by clicking the icon (to the right of every question).</p>
+        <p>When you have completed the survey, click the SUBMIT SURVEY button to send the results for processing. If you have not completed the entire survey, you may save your answers by clicking FINISH LATER. If you save your survey, remember to return at a later time to complete and submit your survey.</p>
+        </blockquote>
+    </div>

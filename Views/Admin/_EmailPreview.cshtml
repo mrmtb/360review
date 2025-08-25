@@ -1,0 +1,18 @@
+@model reviews.Models.EmailQueue
+
+<div class="modal-body">
+    <p><strong>To:</strong> @Model.EmailTo</p>
+    <p><strong>From:</strong> @Model.EmailFrom</p>
+    <p><strong>Actor:</strong> @Model.EmailActor @(Model.EmailTest ? " (Test)" : "")</p>
+    <p><strong>Subject:</strong> @Model.EmailSubject</p>
+    <hr />
+    <pre style="white-space: pre-wrap; word-wrap: break-word; max-width: 100%; overflow-x: auto;">@Html.Raw(Model.EmailBodyText)</pre>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).on('click', '.close-preview', function () {
+            $(this).closest('.email-preview-row').hide();
+        });
+    </script>
+}
