@@ -16,7 +16,7 @@
 </select>
 
 <p>
-    <a class="btn btn-primary" asp-action="createItem" >Create New</a>
+    <a class="btn btn-primary" id="createNewBtn" asp-action="CreateItem">Create New</a>
 </p>
 
 
@@ -76,6 +76,16 @@
         $(document).on('click', '.cancel-details', function (e) {
             e.preventDefault(); // Prevent default link behavior
             $('#detailsContainer').empty(); // Clear the details container
+        });
+
+        $(document).on('click', '#createNewBtn', function (e) {
+            e.preventDefault(); // Prevent default link behavior
+            var selectedModel = $('#modelSelect').val();
+            $.get('/Admin/CreateItem', { selectedModel: selectedModel }, function (data) {
+                $('#detailsContainer').html(data);
+            }).fail(function () {
+                alert('Failed to load new item form. Please try again.');
+            });
         });
 
         function initializePartialViewScripts() {

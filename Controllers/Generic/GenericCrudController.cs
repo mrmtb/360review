@@ -34,7 +34,7 @@ public class GenericController : Controller
         var entityList = ((IEnumerable<object>?)dbSet)?.ToList() ?? new List<object>();
 
         var idProp = type?.GetProperties().FirstOrDefault(p =>
-            p.PropertyType == typeof(Guid) || p.PropertyType == typeof(int));
+            p.PropertyType == typeof(Guid));
 
         object? match = null;
         foreach (var entity in entityList!)
@@ -142,10 +142,10 @@ public class GenericController : Controller
             idProp.SetValue(entity, Guid.NewGuid());
             idVal = idProp.GetValue(entity); // Update idVal with the new Guid
         }
-        // If the idProp is an int and the value is null or empty, assign a new int (e.g., 0)
+    // If the idProp is a Guid and the value is null or empty, assign Guid.Empty
         else if (idProp != null && idProp.PropertyType == typeof(int) && (idVal == null || (int)idVal == 0))
         {
-            // Search for the highest int value in the Id field
+        // Search for the highest Guid value in the Id field
             var dbSet2 = _context.GetType().GetProperty(modelName + "s")?.GetValue(_context);
             var list2 = ((IEnumerable<object>?)dbSet2)?.ToList() ?? new List<object>();
 

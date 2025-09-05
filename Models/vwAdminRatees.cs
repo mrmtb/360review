@@ -6,7 +6,7 @@ namespace reviews.Models
     {
         public Guid ClientId { get; set; }
         public required string ClientName { get; set; }
-        public int EvaluationId { get; set; }
+        public Guid EvaluationId { get; set; }
         public Guid ParticipantId { get; set; }
         public required string ParticipantNameFirst { get; set; }
         public required string ParticipantNameLast { get; set; }

@@ -2,10 +2,16 @@
 
 <div class="card">
     <div class="card-header">
-        <h5>Details for @Model.ClientName</h5>
+        <h5>
+            @if (Model.ClientId == Guid.Empty) {
+                <text>Create New Client</text>
+            } else {
+                <text>Details for @Model.ClientName</text>
+            }
+        </h5>
     </div>
     <div class="card-body">
-        <form method="post" asp-controller="Admin" asp-action="UpdateClient">
+        <form method="post" asp-controller="Admin" asp-action="SaveClient")">
             <input type="hidden" name="selectedModel" value="@ViewData["SelectedModel"]" />
             <input type="hidden" name="ClientId" value="@Model.ClientId" />
             <div class="mb-3 row align-items-center">
@@ -47,7 +53,7 @@
                     </div>
             </div>
             <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle"></i> Save
+                @(Model.ClientId == Guid.Empty ? "Create" : "Save")
             </button>
             <a class="btn btn-secondary ms-2 cancel-details" href="#">
                 <i class="bi bi-x-circle"></i> Cancel

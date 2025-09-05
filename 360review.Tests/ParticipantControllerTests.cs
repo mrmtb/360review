@@ -60,7 +60,7 @@ public class ParticipantControllerTests
         _mockContext.Setup(c => c.Participants).Returns(mockSet.Object);
 
         // Act
-        int? evaluationId = null; // or set to a valid int value if needed
+        Guid? evaluationId = null; // or set to a valid Guid value if needed
         Guid? someGuid = null; // or set to a valid Guid value if needed
         var result = _controller.ParticipantIndex(evaluationId, someGuid);
 

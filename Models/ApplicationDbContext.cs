@@ -87,7 +87,6 @@ public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser,
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-
         modelBuilder.HasDefaultSchema("public");
 
         modelBuilder.Entity<IdentityUserLogin<string>>(entity =>
@@ -299,6 +298,7 @@ public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser,
         modelBuilder.Entity<EligibleRaters>(entity =>
         {
             entity.HasNoKey();
+            entity.ToFunction("fnEligibleRaters");
             entity.Property(e => e.EvaluationRateeId).HasColumnType("uuid");
             entity.Property(e => e.ParticipantId).HasColumnType("uuid");
             entity.Property(e => e.ParticipantNameFirst).HasColumnType("text");
@@ -340,7 +340,7 @@ public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser,
         {
             entity.ToTable("Evaluation");
 
-            entity.Property(e => e.EvaluationId).ValueGeneratedNever();
+            entity.Property(e => e.EvaluationId).HasColumnType("uuid").ValueGeneratedOnAdd().HasDefaultValueSql("gen_random_uuid()");
             entity.Property(e => e.EvaluationActive).HasDefaultValue(false);
             entity.Property(e => e.EvaluationOpenDate).HasColumnType("timestamp with time zone");
             entity.Property(e => e.EvaluationRateeDueDate).HasColumnType("timestamp with time zone");
@@ -411,7 +411,8 @@ public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser,
             // Evaluation
             entity.HasOne(d => d.Evaluations)
                 .WithMany(p => p.EvaluationRatee)
-                .HasForeignKey(d => d.EvaluationId);
+                .HasForeignKey(d => d.EvaluationId)
+                .HasConstraintName("FK_EvaluationRatee_Evaluation_EvaluationId");
 
             // Participant
             entity.HasOne(d => d.Participants)
@@ -454,14 +455,16 @@ public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser,
         modelBuilder.Entity<vwRatersByRatee>().HasNoKey().ToView("vwRatersByRatee");
         modelBuilder.Entity<vwReminders>().HasNoKey().ToView("vwReminders");
 
-        var eligibleRatersMethod = typeof(ApplicationDBContext).GetMethod(nameof(fnEligibleRaters), new[] { typeof(Guid) });
-        if (eligibleRatersMethod != null)
+        // Map the entity to the function result
+        modelBuilder.Entity<EligibleRaters>()
+            .HasNoKey()
+            .ToFunction("fnEligibleRaters");
+
+        // Map the method to the database function
+        var methodInfo = typeof(ApplicationDBContext).GetMethod(nameof(fnEligibleRaters), new[] { typeof(Guid) });
+        if (methodInfo != null)
         {
-            modelBuilder.HasDbFunction(eligibleRatersMethod);
-        }
-        else
-        {
-            throw new InvalidOperationException("Method fnEligibleRaters(Guid) not found in ApplicationDBContext.");
+            modelBuilder.HasDbFunction(methodInfo);
         }
 
         OnModelCreatingPartial(modelBuilder);

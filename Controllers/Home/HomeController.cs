@@ -26,7 +26,7 @@ public class HomeController : Controller
     private string localEmail = "";
     private string localRole = "";
     private string localClientLogoLocation = "/images/Transparent-Logo-Horiz-1.png";
-    private int localDefaultEvaluationId = -1;
+    private Guid localDefaultEvaluationId = Guid.Empty;
     private int localOpenRatings = -1;
     private string EvaluationsText = "";
     private string RatersText = "";
@@ -141,7 +141,7 @@ public class HomeController : Controller
                 }
                 else
                 {
-                    localDefaultEvaluationId = 0;
+                    localDefaultEvaluationId = Guid.Empty;
                 }
 
                 var defaultReviews = _db.ViewEvaluationsToComplete
@@ -191,7 +191,7 @@ public class HomeController : Controller
         localDefaultEvaluationId = sessionData.DefaultEvaluationId;
         localOpenRatings = sessionData.OpenRatingCount;
 
-        if (localDefaultEvaluationId > 0 && User.IsInRole("Participant"))
+    if (localDefaultEvaluationId != Guid.Empty && User.IsInRole("Participant"))
         {
             RatersText = "You have an active 360 review. Select <i>Your Raters</i> on the left to identify your raters.";
             // In this instance, we will send the participant to the Raters page

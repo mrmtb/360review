@@ -7,7 +7,7 @@ namespace reviews.Models
         public Guid ClientId { get; set; }
         public required string ClientName { get; set; }
         public required string ClientHelpContact { get; set; }
-        public int EvaluationId { get; set; }
+        public Guid EvaluationId { get; set; }
         public Guid EvaluationRateeId { get; set; }
         public bool EvaluationTestEmails { get; set; }
         public Guid RateeParticipantId { get; set; }

@@ -1,7 +1,12 @@
-﻿namespace reviews.Models;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+
+namespace reviews.Models;
 
 public partial class EmailQueue
 {
+    [Key]
     public int EmailQueueId { get; set; }
 
     public Guid ParticipantId { get; set; }
@@ -19,7 +24,7 @@ public partial class EmailQueue
     public string EmailFrom { get; set; } = null!;
 
     public string EmailTo { get; set; } = null!;
-    
+
     public string EmailSubject { get; set; } = null!;
 
     public string EmailBodyHTML { get; set; } = null!;

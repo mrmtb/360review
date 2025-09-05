@@ -6,7 +6,7 @@ namespace reviews.Models
     {
         public Guid EvaluationRateeId { get; set; }
         public Guid Ratee { get; set; }
-        public int EvaluationId { get; set; }
+        public Guid EvaluationId { get; set; }
         public bool EvaluationActive { get; set; }
         public bool EvaluationTestEmails { get; set; }
         public int EvaluationMaxRaters { get; set; }

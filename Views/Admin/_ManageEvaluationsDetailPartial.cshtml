@@ -2,10 +2,12 @@
 
 <div class="card">
     <div class="card-header">
-        <h5>Details for @Model.EvaluationName</h5>
+        <h5>
+            @if (Model.EvaluationId != Guid.Empty) {<text>Details for @Model.EvaluationName</text>} else {<text>Create New Evaluation</text>}
+        </h5>
     </div>
     <div class="card-body">
-        <form method="post" asp-controller="Admin" asp-action="UpdateEvaluation">
+        <form asp-action="SaveEvaluation" method="post">
             <input type="hidden" name="selectedModel" value="@ViewData["SelectedModel"]" />
             <input type="hidden" name="EvaluationId" value="@Model.EvaluationId" />
             <div class="mb-3 row align-items-center">
@@ -81,7 +83,7 @@
                     <input type="hidden" class="form-control" name="ClientId" id="ClientId" value="@Model.ClientId" />
             </div>
             <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle"></i> Save
+                @(Model.EvaluationId == Guid.Empty ? "Create" : "Save")
             </button>
             <a class="btn btn-secondary ms-2 cancel-details" href="#">
                 <i class="bi bi-x-circle"></i> Cancel

@@ -7,7 +7,7 @@ public class HomeViewModel
     public Guid LocalClientId { get; set; }
     public string? LocalClientName { get; set; }
     public string? LocalClientLogoLocation { get; set; }
-    public int LocalDefaultEvaluationId { get; set; }
+    public Guid LocalDefaultEvaluationId { get; set; }
     public int LocalOpenRatings { get; set; }
     public string? EvaluationsText { get; set; }
     public string? RatersText { get; set; }

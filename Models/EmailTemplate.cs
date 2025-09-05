@@ -1,7 +1,12 @@
-﻿namespace reviews.Models;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+
+namespace reviews.Models;
 
 public partial class EmailTemplate
 {
+    [Key]
     public Guid EmailTemplateId { get; set; }
 
     public Guid ClientId { get; set; }

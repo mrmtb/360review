@@ -7,6 +7,7 @@ using reviews.Models;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using reviews.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 public class AdminController : Controller
 {
@@ -157,7 +158,7 @@ public class AdminController : Controller
 
     [HttpGet]
     [Authorize(Roles = "Admin,Client")]
-    public IActionResult GetRatersForEvaluation(int evaluationId, Guid participantId)
+    public IActionResult GetRatersForEvaluation(Guid evaluationId, Guid participantId)
     {
         var raters = _db.ViewRatersByRatees
             .Where(r => r.EvaluationId == evaluationId && r.Ratee == participantId)
@@ -167,7 +168,7 @@ public class AdminController : Controller
 
     [HttpGet]
     [Authorize(Roles = "Admin,Client")]
-    public IActionResult GetRateesForEvaluation(int evaluationId, Guid participantId)
+    public IActionResult GetRateesForEvaluation(Guid evaluationId, Guid participantId)
     {
         var ratees = _db.ViewEvaluationsToComplete
             .Where(r => r.EvaluationId == evaluationId && r.Rater == participantId)
@@ -336,7 +337,7 @@ public class AdminController : Controller
 
     [HttpGet]
     [Authorize(Roles = "Admin")]
-    public IActionResult GetEvaluationDetails(int id)
+    public IActionResult GetEvaluationDetails(Guid id)
     {
         var evaluation = _db.Evaluations
             .Include(e => e.Client) // Include related data if necessary
@@ -351,115 +352,65 @@ public class AdminController : Controller
         return PartialView("_ManageEvaluationsDetailPartial", evaluation);
     }
 
-
-    // this is not being used. Was CRUD scaffolding for Evaluation
-    // POST: Evaluation/Create
     [HttpPost]
     [Authorize(Roles = "Admin")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EvaluationCreate([Bind("EvaluationId,EvaluationName,ClientId,EvaluationFolder,EvaluationMaxRaters,EvaluationActive")] Evaluation evaluation)
+    public async Task<IActionResult> SaveEvaluation(Evaluation model, string selectedModel)
     {
-        if (ModelState.IsValid)
-        {
-            evaluation.EvaluationId = _db.Evaluations.Max(e => e.EvaluationId) + 1; // Assuming EvaluationId is auto-incremented
-            _db.Add(evaluation);
-            await _db.SaveChangesAsync();
-            return RedirectToAction(nameof(GetEvaluationDetails), new { id = evaluation.EvaluationId });
-        }
-
-        foreach (var state in ModelState)
-        {
-            foreach (var error in state.Value.Errors)
-            {
-                Debug.WriteLine($"Key: {state.Key}, Error: {error.ErrorMessage}");
-            }
-        }
-
-        ViewData["ClientId"] = new SelectList(_db.Clients, "ClientId", "ClientName", evaluation.ClientId);
-        return View(evaluation);
-    }
-
-    [HttpPost]
-    [Authorize(Roles = "Admin")]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdateEvaluation(Evaluation model, string selectedModel)
-    {
-        if (model == null || model.EvaluationId == 0)
+        if (model == null || model.ClientId == Guid.Empty)
         {
             return BadRequest("Invalid Evaluation data.");
         }
 
         // Retrieve the existing Evaluation from the database
-        var evaluation = await _db.Evaluations.FirstOrDefaultAsync(e => e.EvaluationId == model.EvaluationId);
+        var evaluation = await _db.Evaluations.FirstOrDefaultAsync(e => e.EvaluationId == model.EvaluationId && e.ClientId == localClientId);
         if (evaluation == null)
         {
-            return NotFound("Evaluation not found.");
-        }
-
-        // Compare and update only changed properties
-        if (evaluation.EvaluationName != model.EvaluationName)
-        {
-            evaluation.EvaluationName = model.EvaluationName;
-        }
-
-        if (evaluation.EvaluationFolder != model.EvaluationFolder)
-        {
-            evaluation.EvaluationFolder = model.EvaluationFolder;
-        }
-
-        if (evaluation.EvaluationHelpContact != model.EvaluationHelpContact)
-        {
-            evaluation.EvaluationHelpContact = model.EvaluationHelpContact;
-        }
-
-        if (evaluation.EvaluationMaxRaters != model.EvaluationMaxRaters)
-        {
-            evaluation.EvaluationMaxRaters = model.EvaluationMaxRaters;
-        }
-
-        if (model.EvaluationOpenDate.HasValue)
-        {
-            // Ensure the date is in UTC format
-            var parsedOpenDate = DateTime.SpecifyKind(model.EvaluationOpenDate.Value, DateTimeKind.Local).ToUniversalTime();
-            if (evaluation.EvaluationOpenDate != parsedOpenDate)
+            evaluation = new Evaluation
             {
-                evaluation.EvaluationOpenDate = parsedOpenDate;
+                EvaluationId = model.EvaluationId,
+                ClientId = model.ClientId
+            };
+        }
+
+        var properties = typeof(Evaluation).GetProperties();
+        foreach (var prop in properties)
+        {
+            // Skip EvaluationId and ClientId (or any other keys you don't want to update)
+            if (prop.Name == "EvaluationId" || prop.Name == "ClientId") continue;
+
+            var newValue = prop.GetValue(model);
+            var oldValue = prop.GetValue(evaluation);
+
+            // Special handling for nullable DateTime properties to ensure UTC conversion
+            if (prop.PropertyType == typeof(DateTime?) && newValue != null)
+            {
+                var dateValue = (DateTime?)newValue;
+                if (dateValue.HasValue)
+                {
+                    var utcValue = DateTime.SpecifyKind(dateValue.Value, DateTimeKind.Local).ToUniversalTime();
+                    if (!oldValue?.Equals(utcValue) ?? true)
+                    {
+                        prop.SetValue(evaluation, utcValue);
+                    }
+                }
+            }
+            else if ((oldValue == null && newValue != null) || (oldValue != null && !oldValue.Equals(newValue)))
+            {
+                prop.SetValue(evaluation, newValue);
             }
         }
 
-        if (model.EvaluationRateeDueDate.HasValue)
+    if (evaluation.EvaluationId == Guid.Empty)
         {
-            // Ensure the date is in UTC format
-            var parsedRateeDueDate = DateTime.SpecifyKind(model.EvaluationRateeDueDate.Value, DateTimeKind.Local).ToUniversalTime();
-            if (evaluation.EvaluationRateeDueDate != parsedRateeDueDate)
-            {
-                evaluation.EvaluationRateeDueDate = parsedRateeDueDate;
-            }
+            _db.Evaluations.Add(evaluation);
         }
-
-        if (model.EvaluationRaterDueDate.HasValue)
+        else
         {
-            // Ensure the date is in UTC format
-            var parsedRaterDueDate = DateTime.SpecifyKind(model.EvaluationRaterDueDate.Value, DateTimeKind.Local).ToUniversalTime();
-            if (evaluation.EvaluationRaterDueDate != parsedRaterDueDate)
-            {
-                evaluation.EvaluationRaterDueDate = parsedRaterDueDate;
-            }
+            _db.Evaluations.Update(evaluation);
         }
-
-        if (evaluation.EvaluationActive != model.EvaluationActive)
-        {
-            evaluation.EvaluationActive = model.EvaluationActive;
-        }
-
-        if (evaluation.EvaluationTestEmails != model.EvaluationTestEmails)
-        {
-            evaluation.EvaluationTestEmails = model.EvaluationTestEmails;
-        }
-
-        // Save changes to the database
+        
         await _db.SaveChangesAsync();
-        // Redirect to ManageIndex with the selected model
         return RedirectToAction("ManageIndex", new { selectedModel });
     }
 
@@ -508,9 +459,9 @@ public class AdminController : Controller
     [HttpPost]
     [Authorize(Roles = "Admin")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdateClient(Client model, string selectedModel)
+    public async Task<IActionResult> SaveClient(Client model, string selectedModel)
     {
-        if (model == null || model.ClientId == Guid.Empty)
+        if (model == null)
         {
             return BadRequest("Invalid Client data.");
         }
@@ -519,37 +470,53 @@ public class AdminController : Controller
         var client = await _db.Clients.FirstOrDefaultAsync(c => c.ClientId == model.ClientId);
         if (client == null)
         {
-            return NotFound("Client not found.");
+            client = new Client
+            {
+                ClientId = model.ClientId
+            };
         }
 
-        // Compare and update only changed properties
-        if (client.ClientName != model.ClientName)
+        // Update existing client
+
+        var properties = typeof(Client).GetProperties();
+        foreach (var prop in properties)
         {
-            client.ClientName = model.ClientName;
+            // Skip ClientId (or any other keys you don't want to update)
+            if (prop.Name == "ClientId") continue;
+
+            var newValue = prop.GetValue(model);
+            var oldValue = prop.GetValue(client);
+
+            // Special handling for nullable DateTime properties to ensure UTC conversion
+            if (prop.PropertyType == typeof(DateTime?) && newValue != null)
+            {
+                var dateValue = (DateTime?)newValue;
+                if (dateValue.HasValue)
+                {
+                    var utcValue = DateTime.SpecifyKind(dateValue.Value, DateTimeKind.Local).ToUniversalTime();
+                    if (!oldValue?.Equals(utcValue) ?? true)
+                    {
+                        prop.SetValue(client, utcValue);
+                    }
+                }
+            }
+            else if ((oldValue == null && newValue != null) || (oldValue != null && !oldValue.Equals(newValue)))
+            {
+                prop.SetValue(client, newValue);
+            }
         }
 
-        if (client.ClientLogoLocation != model.ClientLogoLocation)
+        if (client.ClientId == Guid.Empty)
         {
-            client.ClientLogoLocation = model.ClientLogoLocation;
+            client.ClientId = Guid.NewGuid();
+            _db.Clients.Add(client);
         }
-
-        if (client.ClientHelpContact != model.ClientHelpContact)
+        else
         {
-            client.ClientHelpContact = model.ClientHelpContact;
+            _db.Clients.Update(client);
         }
-
-        if (client.ClientEmailDomain != model.ClientEmailDomain)
-        {
-            client.ClientEmailDomain = model.ClientEmailDomain;
-        }
-        if (client.ClientIsActive != model.ClientIsActive)
-        {
-            client.ClientIsActive = model.ClientIsActive;
-        }
-
-        // Save changes to the database
+        
         await _db.SaveChangesAsync();
-        // Redirect to ManageIndex with the selected model
         return RedirectToAction("ManageIndex", new { selectedModel });
     }
 
@@ -572,43 +539,64 @@ public class AdminController : Controller
     [HttpPost]
     [Authorize(Roles = "Admin")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdateEmailTemplate(EmailTemplate model, string selectedModel)
+    public async Task<IActionResult> SaveEmailTemplate(EmailTemplate model, string selectedModel)
     {
-        if (model == null || model.EmailTemplateId == Guid.Empty)
+        if (model == null || model.ClientId == Guid.Empty)
         {
             return BadRequest("Invalid Email Template data.");
         }
 
-        // Retrieve the existing Email Template from the database
-        var emailTemplate = await _db.EmailTemplates.FirstOrDefaultAsync(c => c.EmailTemplateId == model.EmailTemplateId && c.ClientId == localClientId);
+        // Retrieve the existing Client from the database
+        var emailTemplate = await _db.EmailTemplates.FirstOrDefaultAsync(c => c.EmailTemplateId == model.EmailTemplateId);
         if (emailTemplate == null)
         {
-            return NotFound("Email Template not found.");
+            emailTemplate = new EmailTemplate
+            {
+                ClientId = model.ClientId
+            };
         }
 
-        // Compare and update only changed properties
-        if (emailTemplate.EmailTemplateName != model.EmailTemplateName)
+        // Update existing email template
+
+        var properties = typeof(EmailTemplate).GetProperties();
+        foreach (var prop in properties)
         {
-            emailTemplate.EmailTemplateName = model.EmailTemplateName;
+            // Skip ClientId (or any other keys you don't want to update)
+            if (prop.Name == "ClientId" || prop.Name == "EmailTemplateId") continue;
+
+            var newValue = prop.GetValue(model);
+            var oldValue = prop.GetValue(emailTemplate);
+
+            // Special handling for nullable DateTime properties to ensure UTC conversion
+            if (prop.PropertyType == typeof(DateTime?) && newValue != null)
+            {
+                var dateValue = (DateTime?)newValue;
+                if (dateValue.HasValue)
+                {
+                    var utcValue = DateTime.SpecifyKind(dateValue.Value, DateTimeKind.Local).ToUniversalTime();
+                    if (!oldValue?.Equals(utcValue) ?? true)
+                    {
+                        prop.SetValue(emailTemplate, utcValue);
+                    }
+                }
+            }
+            else if ((oldValue == null && newValue != null) || (oldValue != null && !oldValue.Equals(newValue)))
+            {
+                prop.SetValue(emailTemplate, newValue);
+            }
         }
 
-        if (emailTemplate.EmailFromName != model.EmailFromName)
+        if (emailTemplate.EmailTemplateId == Guid.Empty)
         {
-            emailTemplate.EmailFromName = model.EmailFromName;
+            emailTemplate.EmailTemplateId = Guid.NewGuid();
+            _db.EmailTemplates.Add(emailTemplate);
         }
-
-        if (emailTemplate.EmailSubject != model.EmailSubject)
+        else
         {
-            emailTemplate.EmailSubject = model.EmailSubject;
+            _db.EmailTemplates.Update(emailTemplate);
         }
-        if (emailTemplate.EmailTemplateContent != model.EmailTemplateContent)
-        {
-            emailTemplate.EmailTemplateContent = model.EmailTemplateContent;
-        }
-
-        // Save changes to the database
+        
         await _db.SaveChangesAsync();
-        // Redirect to ManageIndex with the selected model
         return RedirectToAction("ManageIndex", new { selectedModel });
     }
 
@@ -668,7 +656,7 @@ public class AdminController : Controller
         return RedirectToAction("ViewInvitations");
     }
 
-    private bool EvaluationExists(int id)
+    private bool EvaluationExists(Guid id)
     {
         return _db.Evaluations.Any(e => e.EvaluationId == id);
     }
@@ -706,7 +694,7 @@ public class AdminController : Controller
     [Authorize(Roles = "Admin")]
     public IActionResult PreviewEmail(int id)
     {
-        var email = _db.EmailQueue.FirstOrDefault(e => e.EmailQueueId == id);
+    var email = _db.EmailQueue.FirstOrDefault(e => e.EmailQueueId == id);
         if (email == null)
         {
             return NotFound();
@@ -719,7 +707,7 @@ public class AdminController : Controller
     [Authorize(Roles = "Admin")]
     public IActionResult RetryEmail(int id)
     {
-        var email = _db.EmailQueue.FirstOrDefault(e => e.EmailQueueId == id);
+    var email = _db.EmailQueue.FirstOrDefault(e => e.EmailQueueId == id);
         if (email == null || email.EmailSent)
         {
             return BadRequest("Email not found or already sent.");
@@ -735,7 +723,7 @@ public class AdminController : Controller
     [Authorize(Roles = "Admin")]
     public IActionResult CancelEmail(int id)
     {
-        var email = _db.EmailQueue.FirstOrDefault(e => e.EmailQueueId == id);
+    var email = _db.EmailQueue.FirstOrDefault(e => e.EmailQueueId == id);
         if (email == null || email.EmailSent)
         {
             return BadRequest("Email not found or already sent.");
@@ -745,5 +733,36 @@ public class AdminController : Controller
         _db.SaveChanges();
 
         return RedirectToAction("EmailQueueDashboard");
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public IActionResult CreateItem(string selectedModel)
+    {
+        switch (selectedModel)
+        {
+            case "GetEvaluationsForManage":
+                // Return the edit partial view for Evaluation (empty model for create)
+                ViewData["SelectedModel"] = "Evaluations";
+                return PartialView("_ManageEvaluationsDetailPartial", new Evaluation
+                {
+                    EvaluationId = Guid.Empty, //indicates the new item interface
+                    ClientId = localClientId
+                });
+            case "GetClientsForManage":
+                // Return the edit partial view for Client (empty model for create)
+                ViewData["SelectedModel"] = "Clients";
+                return PartialView("_ManageClientsDetailPartial", new Client());
+            case "GetEmailTemplatesForManage":
+                // Return the edit partial view for Email Template (empty model for create)
+                ViewData["SelectedModel"] = "EmailTemplates";
+                return PartialView("_ManageEmailTemplatesDetailPartial", new EmailTemplate
+                {
+                    ClientId = localClientId
+                });
+            default:
+                // Optionally, return a default partial or error
+                return Content("Unknown model type: " + selectedModel);
+        }
     }
 }

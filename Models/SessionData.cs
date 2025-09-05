@@ -9,7 +9,7 @@ namespace reviews.Models
         public Guid ClientId { get; set; }
         public string ClientName { get; set; } = null!;
         public string ClientLogoLocation { get; set; } = "";
-        public int DefaultEvaluationId { get; set; } = -1;
+        public Guid DefaultEvaluationId { get; set; }
         public int OpenRatingCount { get; set; } = -1;
     }
 

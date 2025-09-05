@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace reviews.Models;
 
 public partial class Evaluation
 {
-    public int EvaluationId { get; set; }
+    [Key]
+    public Guid EvaluationId { get; set; } = Guid.NewGuid();
 
     public bool EvaluationActive { get; set; }
 

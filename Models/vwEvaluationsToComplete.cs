@@ -8,7 +8,7 @@ namespace reviews.Models
         public required string RaterNameFirst { get; set; }
         public required string RaterNameLast { get; set; }
         public required string RaterEmail { get; set; }
-        public int EvaluationId { get; set; }
+        public Guid EvaluationId { get; set; }
         public required bool EvaluationActive { get; set; }
         public required bool EvaluationTestEmails { get; set; }
         public required string EvaluationName { get; set; }

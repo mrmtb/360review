@@ -21,7 +21,17 @@
                 <td>@item.EmailTemplateName</td>
                 <td>@item.Client?.ClientName</td>
                 <td>@item.EmailFromName</td>
-                <td>@item.EmailTemplateContent.Substring(0, 25)...</td>
+                <td>
+                    @if (!string.IsNullOrEmpty(item.EmailTemplateContent) && item.EmailTemplateContent.Length > 25)
+                    {
+                        @item.EmailTemplateContent.Substring(0, 25)... 
+                    }
+                    else
+                    {
+                        @item.EmailTemplateContent
+                    }
+                </td>
+                </td>
                 <td>
                     <button class="btn btn-sm btn-primary load-details" data-url="GetEmailTemplateDetails" data-id="@item.EmailTemplateId">
                         <i class="bi bi-pencil-square"></i> Details

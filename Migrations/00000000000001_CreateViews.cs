@@ -308,6 +308,7 @@ namespace reviews.Migrations
                     c.""ClientHelpContact"",
                     e.""EvaluationId"",
                     er.""EvaluationRateeId"",
+                    e.""EvaluationTestEmails"",
                     r.""ParticipantId"" AS ""RateeParticipantId"",
                     r.""ParticipantNameFirst"" as ""RateeNameFirst"",
                     r.""ParticipantNameLast"" as ""RateeNameLast"",
@@ -386,7 +387,7 @@ namespace reviews.Migrations
                 SELECT 
                     DISTINCT ON (p.""ParticipantId"")
                     p.""ParticipantId"",
-                    COALESCE(er.""EvaluationId"", 0) ""EvaluationId"",
+                    COALESCE(er.""EvaluationId"", '00000000-0000-0000-0000-000000000000') ""EvaluationId"",
                     COALESCE(er.""EvaluationActive"", false) ""EvaluationActive""
                 FROM 
                                 public.""Participant"" p 

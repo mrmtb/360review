@@ -7,7 +7,7 @@ public partial class EvaluationRatee
 {
     public Guid EvaluationRateeId { get; set; }
 
-    public int EvaluationId { get; set; }
+    public Guid EvaluationId { get; set; }
 
     public Guid ParticipantId { get; set; }
 

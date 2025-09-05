@@ -1,0 +1,25 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "ApplicationDBConnection": "Server=localhost;Port=5432;Database=reviews_mvc;Username=username;Password=password"
+  },
+  "EmailSettings": {
+    "IsDevelopment": true,
+    "SmtpServer": "smtp.example.com",
+    "SmtpPort": 587,
+    "SmtpUser": "your-email@example.com",
+    "SmtpPass": "your-email-password"
+  },
+  "File": {
+    "Path": "logs/log.txt",
+    "LogLevel": {
+      "Default": "Information"
+    }
+  },
+  "EnableLogging": true
+}

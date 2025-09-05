@@ -295,7 +295,7 @@ namespace reviews.Migrations
                 schema: "public",
                 columns: table => new
                 {
-                    EvaluationId = table.Column<int>(type: "integer", nullable: false),
+                    EvaluationId = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
                     EvaluationActive = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     EvaluationName = table.Column<string>(type: "text", nullable: false),
                     EvaluationFolder = table.Column<string>(type: "text", nullable: false),
@@ -351,7 +351,7 @@ namespace reviews.Migrations
                 columns: table => new
                 {
                     EvaluationRateeId = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
-                    EvaluationId = table.Column<int>(type: "integer", nullable: false),
+                    EvaluationId = table.Column<Guid>(type: "uuid", nullable: false),
                     ParticipantId = table.Column<Guid>(type: "uuid", nullable: false),
                     EvaluationRateeStatusId = table.Column<int>(type: "integer", nullable: false),
                     EvaluationRateeDueDateOverride = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),

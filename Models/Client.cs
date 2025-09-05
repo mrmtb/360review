@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace reviews.Models;
 
 public partial class Client
 {
+    [Key]
     public Guid ClientId { get; set; }
 
     public string ClientName { get; set; } = null!;

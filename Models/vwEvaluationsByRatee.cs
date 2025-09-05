@@ -4,7 +4,7 @@ namespace reviews.Models
 {
     public class vwEvaluationsByRatee
     {
-        public int EvaluationId { get; set; }
+    public Guid EvaluationId { get; set; }
         public bool EvaluationActive { get; set; }
         public required string EvaluationName { get; set; }
         public required string EvaluationFolder { get; set; }

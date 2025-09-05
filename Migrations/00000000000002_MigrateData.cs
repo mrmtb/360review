@@ -178,7 +178,7 @@ FROM    legacy.""360_colleagues"",
             migrationBuilder.Sql(@"
 insert into 
 public.""Evaluation"" (
-    ""EvaluationId"",
+    --""EvaluationId"",
     ""EvaluationActive"", 
     ""EvaluationName"", 
     ""EvaluationFolder"", 
@@ -191,7 +191,7 @@ public.""Evaluation"" (
     ""ClientId""
 )
 SELECT
-    1,
+    --1,
     FALSE, 
     '2022 Momentive Survey', 
     '/momentivesurvey3/momentive360.asp', 
@@ -209,7 +209,7 @@ FROM
             migrationBuilder.Sql(@"
 insert into 
 public.""Evaluation"" (
-    ""EvaluationId"", 
+    --""EvaluationId"", 
     ""EvaluationActive"", 
     ""EvaluationName"", 
     ""EvaluationFolder"", 
@@ -222,7 +222,7 @@ public.""Evaluation"" (
     ""ClientId""
 )
 SELECT
-    2,
+    --2,
     FALSE, 
     '2023 Momentive Survey', 
     '/momentivesurvey3/momentive360.asp', 
@@ -240,7 +240,7 @@ FROM
             migrationBuilder.Sql(@"
 insert into 
 public.""Evaluation"" (
-    ""EvaluationId"",
+    --""EvaluationId"",
     ""EvaluationActive"", 
     ""EvaluationName"", 
     ""EvaluationFolder"", 
@@ -253,7 +253,7 @@ public.""Evaluation"" (
     ""ClientId""
 )
 SELECT
-    3,
+    --3,
     TRUE, 
     '2024 Momentive Survey', 
     '/momentivesurvey3/momentive360.asp', 
@@ -271,7 +271,7 @@ FROM
             migrationBuilder.Sql(@"
 insert into 
 public.""Evaluation"" (
-    ""EvaluationId"",
+    --""EvaluationId"",
     ""EvaluationActive"", 
     ""EvaluationName"", 
     ""EvaluationFolder"", 
@@ -284,7 +284,7 @@ public.""Evaluation"" (
     ""ClientId""
 )
 SELECT
-    4,
+    --4,
     TRUE, 
     '2025 Momentive Survey', 
     '/momentivesurvey3/momentive360.asp', 

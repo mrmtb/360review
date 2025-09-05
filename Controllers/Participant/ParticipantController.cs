@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore;
 namespace reviews.Controllers.ParticipantController;
 public class ParticipantController : Controller
 {
+    private const string StatusCompleted = "Completed";
+    private const string StatusUnfamiliar = "Unfamiliar";
 
     private readonly ApplicationDBContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
@@ -26,7 +28,7 @@ public class ParticipantController : Controller
     private string localEmail = "";
     private string localRole = "";
     private string localClientLogoLocation = "";
-    private int localDefaultEvaluationId = -1;
+    private Guid localDefaultEvaluationId = Guid.Empty;
     private int localOpenRatings = -1;
     public ParticipantController(ApplicationDBContext db, UserManager<ApplicationUser> userManager, ReviewSessionService sessionService,
                                  IHttpContextAccessor httpContextAccessor, ILogger<ParticipantController> logger, IConfiguration configuration,
@@ -58,7 +60,7 @@ public class ParticipantController : Controller
     }
 
     [Authorize(Roles = "Admin, Participant")]
-    public IActionResult ParticipantIndex(int? EvaluationId, Guid? ParticipantId)
+    public IActionResult ParticipantIndex(Guid? EvaluationId, Guid? ParticipantId)
     {
 
         var participant = new List<vwEvaluationsToComplete>();
@@ -71,16 +73,16 @@ public class ParticipantController : Controller
                                       && p.EvaluationActive == true)
                              .ToList();
         }
-        else if (localRole == "Admin" && EvaluationId != null && ParticipantId != null)
+    else if (localRole == "Admin" && EvaluationId.HasValue && ParticipantId.HasValue)
         {
             // If Admin, we can filter by EvaluationId and ParticipantId
             participant = _db.ViewEvaluationsToComplete
-                .Where(p => p.Rater == localParticipantId && p.EvaluationId == EvaluationId && p.ParticipantId == ParticipantId)
+                .Where(p => p.Rater == localParticipantId && p.EvaluationId == EvaluationId.Value && p.ParticipantId == ParticipantId.Value)
                 .ToList();
         }
-        else if (EvaluationId != null)  // If EvaluationId is provided, filter by it
+        else if (EvaluationId.HasValue)  // If EvaluationId is provided, filter by it
         {
-            participant = _db.ViewEvaluationsToComplete.Where(p => p.Rater == ParticipantId && p.EvaluationId == EvaluationId).ToList(); // or filter as needed
+            participant = _db.ViewEvaluationsToComplete.Where(p => p.Rater == ParticipantId && p.EvaluationId == EvaluationId.Value).ToList(); // or filter as needed
         }
         else //confirm the logic here
         {
@@ -93,7 +95,7 @@ public class ParticipantController : Controller
 
     [HttpGet("Participant/ViewRaters/{evaluationId?}/{participantID?}")]
     [Authorize(Roles = "Admin,Participant")]
-    public IActionResult ViewRaters(int? EvaluationID, Guid? participantID)
+    public IActionResult ViewRaters(Guid? EvaluationID, Guid? participantID)
     {
         var Raters = new List<vwRatersByRatee>();
 
@@ -109,7 +111,7 @@ public class ParticipantController : Controller
             {
                 // Admin can filter by EvaluationId and ParticipantId
                 Raters = _db.ViewRatersByRatees
-                    .Where(p => p.EvaluationId == EvaluationID && p.Ratee == participantID)
+                    .Where(p => p.EvaluationId == EvaluationID.Value && p.Ratee == participantID)
                     .ToList();
             }
             else
@@ -150,11 +152,26 @@ public class ParticipantController : Controller
     public IActionResult GetEligibleRaters(String EvaluationRateeId)
     {
         var eligibleRaters = new List<EligibleRaters>();
+        _logger.LogInformation($"GetEligibleRaters called. Input: {EvaluationRateeId}");
+
+        if (_db == null)
+        {
+            _logger.LogError("ApplicationDBContext (_db) is null.");
+            return Json(new List<EligibleRaters> {
+                new EligibleRaters {
+                    EvaluationRateeId = Guid.Empty,
+                    ParticipantId = Guid.Empty,
+                    ParticipantNameFirst = "",
+                    ParticipantNameLast = "Error: DB Context is null",
+                    ParticipantEmail = "",
+                    ParticipantHasRegistered = false
+                }
+            });
+        }
 
         if (!Guid.TryParse(EvaluationRateeId, out Guid outGuid) || outGuid == Guid.Empty)
         {
-            LogWarningMessage($"GetEligibleRaters called with bad EvaluationRateeId: {EvaluationRateeId}");
-
+            _logger.LogWarning($"GetEligibleRaters called with bad EvaluationRateeId: {EvaluationRateeId}");
             eligibleRaters = new List<EligibleRaters>
             {
                 new EligibleRaters
@@ -170,19 +187,51 @@ public class ParticipantController : Controller
         }
         else
         {
-            LogWarningMessage($"GetEligibleRaters called with EvaluationRateeId: {outGuid}");
-
-            eligibleRaters = _db.fnEligibleRaters(outGuid)
-                .Select(x => new EligibleRaters
+            _logger.LogInformation($"GetEligibleRaters calling fnEligibleRaters with: {outGuid}");
+            try
+            {
+                var query = _db.fnEligibleRaters(outGuid);
+                if (query == null)
                 {
-                    EvaluationRateeId = x.EvaluationRateeId,
-                    ParticipantId = x.ParticipantId,
-                    ParticipantNameFirst = x.ParticipantNameFirst,
-                    ParticipantNameLast = x.ParticipantNameLast,
-                    ParticipantEmail = x.ParticipantEmail,
-                    ParticipantHasRegistered = x.ParticipantHasRegistered
-                })
-                .ToList();
+                    _logger.LogError("fnEligibleRaters returned null.");
+                    eligibleRaters = new List<EligibleRaters> {
+                        new EligibleRaters {
+                            EvaluationRateeId = Guid.Empty,
+                            ParticipantId = Guid.Empty,
+                            ParticipantNameFirst = "",
+                            ParticipantNameLast = "Error: fnEligibleRaters returned null",
+                            ParticipantEmail = "",
+                            ParticipantHasRegistered = false
+                        }
+                    };
+                }
+                else
+                {
+                    eligibleRaters = query.Select(x => new EligibleRaters
+                    {
+                        EvaluationRateeId = x.EvaluationRateeId,
+                        ParticipantId = x.ParticipantId,
+                        ParticipantNameFirst = x.ParticipantNameFirst,
+                        ParticipantNameLast = x.ParticipantNameLast,
+                        ParticipantEmail = x.ParticipantEmail,
+                        ParticipantHasRegistered = x.ParticipantHasRegistered
+                    }).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception occurred in fnEligibleRaters call.");
+                eligibleRaters = new List<EligibleRaters> {
+                    new EligibleRaters {
+                        EvaluationRateeId = Guid.Empty,
+                        ParticipantId = Guid.Empty,
+                        ParticipantNameFirst = "",
+                        ParticipantNameLast = $"Error: Exception - {ex.Message}",
+                        ParticipantEmail = "",
+                        ParticipantHasRegistered = false
+                    }
+                };
+            }
         }
 
         return Json(eligibleRaters);
@@ -242,7 +291,7 @@ public class ParticipantController : Controller
     }
 
     [HttpGet]
-    public IActionResult GetRatersForEvaluation(int evaluationId, Guid participantId)
+    public IActionResult GetRatersForEvaluation(Guid evaluationId, Guid participantId)
     {
         var raters = _db.ViewRatersByRatees
             .Where(r => r.EvaluationId == evaluationId && r.Ratee == participantId)
@@ -298,7 +347,7 @@ public class ParticipantController : Controller
     }
 
 
-    [HttpGet("thanks.php")]
+    [HttpGet("{folder}/thanks.php")]
     public IActionResult ProcessEvaluationCompleted()
     {
         // Logic to process the completed evaluation
@@ -348,7 +397,7 @@ public class ParticipantController : Controller
             var participant = evaluationParticipant.First();
             // if (eval_familiar == 2) then they are complete, else they are not familiar
             participant.EvaluationParticipantStatusId = _db.EvaluationParticipantStatuses
-                                                           .FirstOrDefault(s => s.EvaluationParticipantStatusName == (eval_familiar == 2 ? "Complete" : "Not Familiar"))?.EvaluationParticipantStatusId;
+                                                           .FirstOrDefault(s => s.EvaluationParticipantStatusName == (eval_familiar == 2 ? StatusCompleted : StatusUnfamiliar))?.EvaluationParticipantStatusId;
             _db.SaveChanges();
         }
         else

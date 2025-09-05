@@ -2,10 +2,16 @@
 
 <div class="card">
     <div class="card-header">
-        <h5>Details for @Model.EmailTemplateName</h5>
+        <h5>
+            @if (Model.EmailTemplateId == Guid.Empty) {
+                <text>Create New Email Template</text>
+            } else {
+                <text>Details for @Model.EmailTemplateName</text>
+            }
+        </h5>
     </div>
     <div class="card-body">
-        <form method="post" asp-controller="Admin" asp-action="UpdateEmailTemplate">
+        <form method="post" asp-controller="Admin" asp-action="SaveEmailTemplate">
             <input type="hidden" name="selectedModel" value="@ViewData["SelectedModel"]" />
             <input type="hidden" name="EmailTemplateId" value="@Model.EmailTemplateId" />
             <input type="hidden" name="ClientId" value="@Model.ClientId" />
@@ -38,7 +44,7 @@
                     </div>
             </div>
             <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle"></i> Save
+                @(Model.EmailTemplateId == Guid.Empty ? "Create" : "Save")
             </button>
             <a class="btn btn-secondary ms-2 cancel-details" href="#">
                 <i class="bi bi-x-circle"></i> Cancel

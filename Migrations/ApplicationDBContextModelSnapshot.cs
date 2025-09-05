@@ -270,6 +270,8 @@ namespace reviews.Migrations
 
             modelBuilder.Entity("reviews.Models.EligibleRaters", b =>
                 {
+                    b.HasNoKey();
+
                     b.Property<Guid>("EvaluationRateeId")
                         .HasColumnType("uuid");
 
@@ -291,7 +293,9 @@ namespace reviews.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.ToTable("EligibleRaters", "public");
+                    b.ToTable((string)null);
+
+                    b.ToFunction("fnEligibleRaters");
                 });
 
             modelBuilder.Entity("reviews.Models.EmailQueue", b =>
@@ -392,8 +396,9 @@ namespace reviews.Migrations
 
             modelBuilder.Entity("reviews.Models.Evaluation", b =>
                 {
-                    b.Property<int>("EvaluationId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<Guid>("ClientId")
                         .HasColumnType("uuid");
@@ -520,8 +525,8 @@ namespace reviews.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
-                    b.Property<int>("EvaluationId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("EvaluationRateeDateAdded")
                         .HasColumnType("timestamp with time zone");
@@ -679,8 +684,8 @@ namespace reviews.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("EvaluationId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("EvaluationParticipantDateLastEmailed")
                         .HasColumnType("timestamp with time zone");
@@ -719,8 +724,8 @@ namespace reviews.Migrations
                     b.Property<bool>("EvaluationActive")
                         .HasColumnType("boolean");
 
-                    b.Property<int>("EvaluationId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("ParticipantId")
                         .HasColumnType("uuid");
@@ -748,8 +753,8 @@ namespace reviews.Migrations
                     b.Property<string>("EvaluationHelpContact")
                         .HasColumnType("text");
 
-                    b.Property<int>("EvaluationId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("EvaluationMaxRaters")
                         .HasColumnType("integer");
@@ -787,8 +792,8 @@ namespace reviews.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("EvaluationId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("EvaluationName")
                         .IsRequired()
@@ -817,6 +822,9 @@ namespace reviews.Migrations
 
                     b.Property<Guid>("EvaluationRateeId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("EvaluationTestEmails")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("ParticipantEmail")
                         .IsRequired()
@@ -923,6 +931,9 @@ namespace reviews.Migrations
                     b.Property<Guid>("EvaluationRateeId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("EvaluationTestEmails")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("MessageToSend")
                         .IsRequired()
                         .HasColumnType("text");
@@ -978,6 +989,9 @@ namespace reviews.Migrations
                     b.Property<Guid>("EvaluationRateeId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("EvaluationTestEmails")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("MessageToSend")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1019,8 +1033,8 @@ namespace reviews.Migrations
                     b.Property<bool>("EvaluationActive")
                         .HasColumnType("boolean");
 
-                    b.Property<int>("EvaluationId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("EvaluationMaxRaters")
                         .HasColumnType("integer");
@@ -1097,8 +1111,8 @@ namespace reviews.Migrations
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("EvaluationId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("EvaluationParticipantDateAdded")
                         .HasColumnType("timestamp with time zone");
@@ -1108,6 +1122,9 @@ namespace reviews.Migrations
 
                     b.Property<Guid>("EvaluationRateeId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("EvaluationTestEmails")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("MessageToSend")
                         .IsRequired()

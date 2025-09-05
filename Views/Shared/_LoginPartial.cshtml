@@ -9,7 +9,7 @@
 @{
     var sessionData = _sessionService.GetSessionData();
     var ClientLogoLocation = sessionData?.ClientLogoLocation ?? Url.Content("/images/Transparent-Logo-Horiz-1.png");
-    var ParticipantIsRatee = sessionData?.DefaultEvaluationId ?? -1;
+    var ParticipantIsRatee = sessionData?.DefaultEvaluationId ?? Guid.Empty;
     var ParticipantHasReviews = sessionData?.OpenRatingCount ?? 0;
     var UserName = "";
 
@@ -106,15 +106,12 @@
                 </a>
             </li>
         }
-        @if (ParticipantIsRatee != 0)
+        @if (ParticipantIsRatee != Guid.Empty)
         {
             <li class="nav-item">
                 <a class="nav-link text-white @GetActiveClass("Participant", "ViewRaters")" id="ratees" asp-controller="Participant" asp-action="ViewRaters" title="Raters">
                     <i class="bi bi-journal-text me-2" width="16" height="16" aria-hidden="true"></i> Raters
-                    @if (ParticipantIsRatee > 0)
-                    {
                         <span class="badge badge-light">1</span>
-                    }
                 </a>
             </li>
         }
