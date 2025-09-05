@@ -24,13 +24,12 @@
                 <td>
                     @if (!string.IsNullOrEmpty(item.EmailTemplateContent) && item.EmailTemplateContent.Length > 25)
                     {
-                        @item.EmailTemplateContent.Substring(0, 25)... 
+                        @item.EmailTemplateContent.Substring(0, 25)<text>...</text> 
                     }
                     else
                     {
                         @item.EmailTemplateContent
                     }
-                </td>
                 </td>
                 <td>
                     <button class="btn btn-sm btn-primary load-details" data-url="GetEmailTemplateDetails" data-id="@item.EmailTemplateId">
