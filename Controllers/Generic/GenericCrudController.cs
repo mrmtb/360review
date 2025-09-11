@@ -4,9 +4,9 @@ using reviews.Models;
 
 public class GenericController : Controller
 {
-    private readonly ApplicationDBContext _context;
+    private readonly ApplicationDbContext _context;
 
-    public GenericController(ApplicationDBContext context)
+    public GenericController(ApplicationDbContext context)
     {
         _context = context;
     }

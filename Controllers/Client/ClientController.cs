@@ -3,9 +3,9 @@ using reviews.Models;
 
 public class ClientController : Controller
 {
-    private readonly ApplicationDBContext _db;
+    private readonly ApplicationDbContext _db;
 
-    public ClientController(ApplicationDBContext db)
+    public ClientController(ApplicationDbContext db)
     {
         _db = db;
     }

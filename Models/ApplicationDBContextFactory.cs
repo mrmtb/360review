@@ -5,20 +5,20 @@ using System.IO;
 
 namespace reviews.Models
 {
-    public class ApplicationDBContextFactory : IDesignTimeDbContextFactory<ApplicationDBContext>
+    public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
     {
-        public ApplicationDBContext CreateDbContext(string[] args)
+        public ApplicationDbContext CreateDbContext(string[] args)
         {
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json")
                 .Build();
 
-            var optionsBuilder = new DbContextOptionsBuilder<ApplicationDBContext>();
+            var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
             var connectionString = configuration.GetConnectionString("ApplicationDBConnection");
             optionsBuilder.UseNpgsql(connectionString);
 
-            return new ApplicationDBContext(optionsBuilder.Options, configuration);
+            return new ApplicationDbContext(optionsBuilder.Options, configuration);
         }
     }
 }

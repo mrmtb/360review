@@ -459,7 +459,7 @@ namespace reviews.Migrations
 
             migrationBuilder.Sql(@"
                 CREATE OR REPLACE FUNCTION
-                public.""fnEligibleRaters"" (EvaluationRateeId uuid)
+                public.""fnEligibleRaters"" (""evaluationRateeId"" uuid)
                 RETURNS TABLE ( ""EvaluationRateeId"" uuid,
                                 ""ParticipantId"" uuid, 
                                 ""ParticipantNameFirst"" VARCHAR, 
@@ -472,7 +472,7 @@ namespace reviews.Migrations
                     FROM        public.""Participant"" p2
                     INNER JOIN  public.""EvaluationParticipant"" ep
                     ON          p2.""ParticipantId"" = ep.""ParticipantId""
-                    AND         ep.""EvaluationRateeId"" = EvaluationRateeId
+                    AND         ep.""EvaluationRateeId"" = ""evaluationRateeId""
                 )
                 SELECT 
                             er.""EvaluationRateeId"",
@@ -484,7 +484,7 @@ namespace reviews.Migrations
                 FROM        public.""EvaluationRatee"" er
                 INNER JOIN  public.""Participant"" p2
                 ON          er.""ParticipantId"" = p2.""ParticipantId""
-                AND         er.""EvaluationRateeId"" = EvaluationRateeId
+                AND         er.""EvaluationRateeId"" = ""evaluationRateeId""
                 INNER JOIN  public.""Participant"" p
                 ON          p2.""ClientId"" = p.""ClientId""
                 LEFT JOIN   ep2

@@ -10,12 +10,12 @@ namespace reviews.Services
 {
     public class EmailQueueHelper
     {
-        private readonly ApplicationDBContext _db;
+        private readonly ApplicationDbContext _db;
         private readonly IEmailService _emailService;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
 
-        public EmailQueueHelper(ApplicationDBContext db, IEmailService emailService, IHttpContextAccessor httpContextAccessor)
+        public EmailQueueHelper(ApplicationDbContext db, IEmailService emailService, IHttpContextAccessor httpContextAccessor)
         {
             _db = db ?? throw new ArgumentNullException(nameof(db));
             _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
@@ -165,7 +165,7 @@ namespace reviews.Services
             var emailQueue = new List<EmailQueue>();
 
             emailQueue = await _db.EmailQueue
-                .Where(eq => !eq.EmailSent)
+                .Where(eq => !eq.EmailSent && eq.EmailQueueId == emailId)
                 .ToListAsync();
 
             if (emailQueue != null && emailQueue.Any())

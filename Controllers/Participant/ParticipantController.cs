@@ -13,7 +13,7 @@ public class ParticipantController : Controller
     private const string StatusCompleted = "Completed";
     private const string StatusUnfamiliar = "Unfamiliar";
 
-    private readonly ApplicationDBContext _db;
+    private readonly ApplicationDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ReviewSessionService _sessionService;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -30,7 +30,7 @@ public class ParticipantController : Controller
     private string localClientLogoLocation = "";
     private Guid localDefaultEvaluationId = Guid.Empty;
     private int localOpenRatings = -1;
-    public ParticipantController(ApplicationDBContext db, UserManager<ApplicationUser> userManager, ReviewSessionService sessionService,
+    public ParticipantController(ApplicationDbContext db, UserManager<ApplicationUser> userManager, ReviewSessionService sessionService,
                                  IHttpContextAccessor httpContextAccessor, ILogger<ParticipantController> logger, IConfiguration configuration,
                                  EmailQueueHelper emailQueueHelper)
     {
@@ -156,7 +156,7 @@ public class ParticipantController : Controller
 
         if (_db == null)
         {
-            _logger.LogError("ApplicationDBContext (_db) is null.");
+            _logger.LogError("ApplicationDbContext (_db) is null.");
             return Json(new List<EligibleRaters> {
                 new EligibleRaters {
                     EvaluationRateeId = Guid.Empty,
@@ -190,33 +190,13 @@ public class ParticipantController : Controller
             _logger.LogInformation($"GetEligibleRaters calling fnEligibleRaters with: {outGuid}");
             try
             {
-                var query = _db.fnEligibleRaters(outGuid);
-                if (query == null)
-                {
-                    _logger.LogError("fnEligibleRaters returned null.");
-                    eligibleRaters = new List<EligibleRaters> {
-                        new EligibleRaters {
-                            EvaluationRateeId = Guid.Empty,
-                            ParticipantId = Guid.Empty,
-                            ParticipantNameFirst = "",
-                            ParticipantNameLast = "Error: fnEligibleRaters returned null",
-                            ParticipantEmail = "",
-                            ParticipantHasRegistered = false
-                        }
-                    };
-                }
-                else
-                {
-                    eligibleRaters = query.Select(x => new EligibleRaters
-                    {
-                        EvaluationRateeId = x.EvaluationRateeId,
-                        ParticipantId = x.ParticipantId,
-                        ParticipantNameFirst = x.ParticipantNameFirst,
-                        ParticipantNameLast = x.ParticipantNameLast,
-                        ParticipantEmail = x.ParticipantEmail,
-                        ParticipantHasRegistered = x.ParticipantHasRegistered
-                    }).ToList();
-                }
+                // Try using FromSqlRaw as an alternative approach
+                eligibleRaters = _db.Database.SqlQuery<EligibleRaters>(
+                    $"SELECT * FROM public.\"fnEligibleRaters\"({outGuid})")
+                    .ToList();
+                    
+                // Original table-valued function approach (commented out for testing)
+                // eligibleRaters = _db.fnEligibleRaters(outGuid).ToList();
             }
             catch (Exception ex)
             {

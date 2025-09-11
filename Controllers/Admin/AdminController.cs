@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 public class AdminController : Controller
 {
 
-    private readonly ApplicationDBContext _db;
+    private readonly ApplicationDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ReviewSessionService _sessionService;
     private readonly EmailQueueHelper _emailQueueHelper;
@@ -28,7 +28,7 @@ public class AdminController : Controller
     //private string EvaluationsText = "";
     //private string RatersText = "";
 
-    public AdminController(ApplicationDBContext db, UserManager<ApplicationUser> userManager, ReviewSessionService sessionService, EmailQueueHelper emailQueueHelper)
+    public AdminController(ApplicationDbContext db, UserManager<ApplicationUser> userManager, ReviewSessionService sessionService, EmailQueueHelper emailQueueHelper)
     {
         _db = db;
         _userManager = userManager;

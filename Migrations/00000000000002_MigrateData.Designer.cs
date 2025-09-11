@@ -11,7 +11,7 @@ using reviews.Models;
 
 namespace reviews.Migrations
 {
-    [DbContext(typeof(ApplicationDBContext))]
+    [DbContext(typeof(ApplicationDbContext))]
     [Migration("00000000000002_MigrateData")]
     partial class _00000000000002_MigrateData : Migration
     {
@@ -412,6 +412,7 @@ namespace reviews.Migrations
             modelBuilder.Entity("reviews.Models.Evaluation", b =>
                 {
                     b.Property<Guid>("EvaluationId")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
@@ -1272,7 +1273,8 @@ namespace reviews.Migrations
                         .WithMany("EvaluationRatee")
                         .HasForeignKey("EvaluationId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_EvaluationRatee_Evaluation_EvaluationId");
 
                     b.HasOne("reviews.Models.EvaluationRateeStatus", "EvaluationRateeStatus")
                         .WithMany("EvaluationRatees")

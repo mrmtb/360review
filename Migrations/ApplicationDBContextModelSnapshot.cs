@@ -10,15 +10,15 @@ using reviews.Models;
 
 namespace reviews.Migrations
 {
-    [DbContext(typeof(ApplicationDBContext))]
-    partial class ApplicationDBContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(ApplicationDbContext))]
+    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("public")
-                .HasAnnotation("ProductVersion", "9.0.8")
+                .HasAnnotation("ProductVersion", "9.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -270,8 +270,6 @@ namespace reviews.Migrations
 
             modelBuilder.Entity("reviews.Models.EligibleRaters", b =>
                 {
-                    b.HasNoKey();
-
                     b.Property<Guid>("EvaluationRateeId")
                         .HasColumnType("uuid");
 
@@ -397,6 +395,7 @@ namespace reviews.Migrations
             modelBuilder.Entity("reviews.Models.Evaluation", b =>
                 {
                     b.Property<Guid>("EvaluationId")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
@@ -1257,7 +1256,8 @@ namespace reviews.Migrations
                         .WithMany("EvaluationRatee")
                         .HasForeignKey("EvaluationId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_EvaluationRatee_Evaluation_EvaluationId");
 
                     b.HasOne("reviews.Models.EvaluationRateeStatus", "EvaluationRateeStatus")
                         .WithMany("EvaluationRatees")

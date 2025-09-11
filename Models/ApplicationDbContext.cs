@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace reviews.Models;
 
-public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser, 
+public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser, 
                                                               IdentityRole, 
                                                               string> 
                                                               /*,
@@ -21,19 +21,19 @@ public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser,
 {
     private readonly IConfiguration? _configuration;
 
-    public ApplicationDBContext() : base(new DbContextOptions<ApplicationDBContext>())
+    public ApplicationDbContext() : base(new DbContextOptions<ApplicationDbContext>())
     {
         // This constructor is only for design-time support.
     }
 
-    public ApplicationDBContext(DbContextOptions<ApplicationDBContext> options, IConfiguration configuration)
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IConfiguration configuration)
         : base(options)
     {
         _configuration = configuration;
     }
 
     public DbSet<Client> Clients { get; set; }
-
+    
     public DbSet<EmailQueue> EmailQueue { get; set; }
 
     public DbSet<EmailTemplate> EmailTemplates { get; set; }
@@ -72,8 +72,8 @@ public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser,
 
     public DbSet<vwReminders> ViewReminders { get; set; }
 
-    public IQueryable<EligibleRaters> fnEligibleRaters(Guid EvaluationRateeId) 
-        => FromExpression(() => fnEligibleRaters(EvaluationRateeId));
+    public IQueryable<EligibleRaters> fnEligibleRaters(Guid evaluationRateeId) 
+        => FromExpression(() => fnEligibleRaters(evaluationRateeId));
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -299,11 +299,12 @@ public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser,
         {
             entity.HasNoKey();
             entity.ToFunction("fnEligibleRaters");
-            entity.Property(e => e.EvaluationRateeId).HasColumnType("uuid");
-            entity.Property(e => e.ParticipantId).HasColumnType("uuid");
-            entity.Property(e => e.ParticipantNameFirst).HasColumnType("text");
-            entity.Property(e => e.ParticipantNameLast).HasColumnType("text");
-            entity.Property(e => e.ParticipantEmail).HasColumnType("text");
+            entity.Property(e => e.EvaluationRateeId).HasColumnName("EvaluationRateeId").HasColumnType("uuid");
+            entity.Property(e => e.ParticipantId).HasColumnName("ParticipantId").HasColumnType("uuid");
+            entity.Property(e => e.ParticipantNameFirst).HasColumnName("ParticipantNameFirst").HasColumnType("text");
+            entity.Property(e => e.ParticipantNameLast).HasColumnName("ParticipantNameLast").HasColumnType("text");
+            entity.Property(e => e.ParticipantEmail).HasColumnName("ParticipantEmail").HasColumnType("text");
+            entity.Property(e => e.ParticipantHasRegistered).HasColumnName("ParticipantHasRegistered").HasColumnType("boolean");
         });
 
         modelBuilder.Entity<EmailTemplate>(entity =>
@@ -461,10 +462,17 @@ public partial class ApplicationDBContext : IdentityDbContext<ApplicationUser,
             .ToFunction("fnEligibleRaters");
 
         // Map the method to the database function
-        var methodInfo = typeof(ApplicationDBContext).GetMethod(nameof(fnEligibleRaters), new[] { typeof(Guid) });
-        if (methodInfo != null)
+        var eligibleRatersMethod = typeof(ApplicationDbContext).GetMethod(nameof(fnEligibleRaters), System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        if (eligibleRatersMethod != null)
         {
-            modelBuilder.HasDbFunction(methodInfo);
+            modelBuilder
+                .HasDbFunction(eligibleRatersMethod)
+                .HasSchema("public")
+                .HasName("fnEligibleRaters");
+        }
+        else
+        {
+            throw new InvalidOperationException("Could not find method info for fnEligibleRaters.");
         }
 
         OnModelCreatingPartial(modelBuilder);

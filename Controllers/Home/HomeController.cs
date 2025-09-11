@@ -12,7 +12,7 @@ namespace reviews.Controllers;
 
 public class HomeController : Controller
 {
-    private readonly ApplicationDBContext _db;
+    private readonly ApplicationDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly ReviewSessionService _sessionService;
@@ -36,7 +36,7 @@ public class HomeController : Controller
     private Guid participantId;
     private string participantName = null!;
 
-    public HomeController(ApplicationDBContext db, UserManager<ApplicationUser> userManager, ReviewSessionService sessionService, RoleManager<IdentityRole> roleManager, SignInManager<ApplicationUser> signInManager)
+    public HomeController(ApplicationDbContext db, UserManager<ApplicationUser> userManager, ReviewSessionService sessionService, RoleManager<IdentityRole> roleManager, SignInManager<ApplicationUser> signInManager)
     {
         _db = db;
         _userManager = userManager;

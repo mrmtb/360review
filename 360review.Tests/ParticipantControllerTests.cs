@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 public class ParticipantControllerTests
 {
-    private readonly Mock<ApplicationDBContext> _mockContext;
+    private readonly Mock<ApplicationDbContext> _mockContext;
     private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
     private readonly Mock<ReviewSessionService> _mockReviewSessionService;
     private readonly Mock<IHttpContextAccessor> _mockHttpContextAccessor;
@@ -20,7 +20,7 @@ public class ParticipantControllerTests
 
     public ParticipantControllerTests()
     {
-        _mockContext = new Mock<ApplicationDBContext>();
+        _mockContext = new Mock<ApplicationDbContext>();
         _mockUserManager = new Mock<UserManager<ApplicationUser>>(
             new Mock<IUserStore<ApplicationUser>>().Object //, null, null, null, null, null, null, null, null
         );
