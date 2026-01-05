@@ -73,9 +73,6 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
 
     public DbSet<vwReminders> ViewReminders { get; set; }
 
-    public IQueryable<EligibleRaters> fnEligibleRaters(Guid evaluationRateeId) 
-        => FromExpression(() => fnEligibleRaters(evaluationRateeId));
-
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (_configuration != null)
@@ -296,18 +293,6 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<EligibleRaters>(entity =>
-        {
-            entity.HasNoKey();
-            entity.ToFunction("fnEligibleRaters");
-            entity.Property(e => e.EvaluationRateeId).HasColumnName("EvaluationRateeId").HasColumnType("uuid");
-            entity.Property(e => e.ParticipantId).HasColumnName("ParticipantId").HasColumnType("uuid");
-            entity.Property(e => e.ParticipantNameFirst).HasColumnName("ParticipantNameFirst").HasColumnType("text");
-            entity.Property(e => e.ParticipantNameLast).HasColumnName("ParticipantNameLast").HasColumnType("text");
-            entity.Property(e => e.ParticipantEmail).HasColumnName("ParticipantEmail").HasColumnType("text");
-            entity.Property(e => e.ParticipantHasRegistered).HasColumnName("ParticipantHasRegistered").HasColumnType("boolean");
-        });
-
         modelBuilder.Entity<EmailTemplate>(entity =>
         {
             entity.ToTable("EmailTemplate");
@@ -456,25 +441,6 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
         modelBuilder.Entity<vwRateeInvitations>().HasNoKey().ToView("vwRateeInvitations");
         modelBuilder.Entity<vwRatersByRatee>().HasNoKey().ToView("vwRatersByRatee");
         modelBuilder.Entity<vwReminders>().HasNoKey().ToView("vwReminders");
-
-        // Map the entity to the function result
-        modelBuilder.Entity<EligibleRaters>()
-            .HasNoKey()
-            .ToFunction("fnEligibleRaters");
-
-        // Map the method to the database function
-        var eligibleRatersMethod = typeof(ApplicationDbContext).GetMethod(nameof(fnEligibleRaters), System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-        if (eligibleRatersMethod != null)
-        {
-            modelBuilder
-                .HasDbFunction(eligibleRatersMethod)
-                .HasSchema("public")
-                .HasName("fnEligibleRaters");
-        }
-        else
-        {
-            throw new InvalidOperationException("Could not find method info for fnEligibleRaters.");
-        }
 
         // DateTime conversion to ensure DateTimeKind is handled automatically
 

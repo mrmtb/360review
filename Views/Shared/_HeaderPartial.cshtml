@@ -2,7 +2,7 @@
 @using reviews.Services
 @using reviews.Models
 
-@inject ReviewSessionService _sessionService
+@inject IReviewSessionService _sessionService
 
 @{
     var sessionData = _sessionService.GetSessionData();
