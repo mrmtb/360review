@@ -4,7 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using reviews.Models;
-using reviews.Services; 
+using reviews.Services;
+using reviews.Constants; 
 
 namespace reviews.Services
 {
@@ -26,12 +27,12 @@ namespace reviews.Services
         {
             if (invitations == null || !invitations.Any())
             {
-                throw new ArgumentException("Email list cannot be null or empty.");
+                throw new ArgumentException(ErrorMessages.EmailListEmpty);
             }
 
             if (emailTemplates == null || !emailTemplates.Any())
             {
-                throw new ArgumentException("Email templates cannot be null or empty.");
+                throw new ArgumentException(ErrorMessages.EmailTemplatesEmpty);
             }
 
             var emailQueueEntries = new List<EmailQueue>();
@@ -42,7 +43,7 @@ namespace reviews.Services
 
                 if (template == null)
                 {
-                    throw new InvalidOperationException($"No email template found for {invitation.MessageToSend}");
+                    throw new InvalidOperationException(string.Format(ErrorMessages.NoEmailTemplate, invitation.MessageToSend));
                 }
 
                 // Perform merge operation (e.g., replace placeholders in the email template)
@@ -149,7 +150,7 @@ namespace reviews.Services
                     if (participant != null)
                     {
                         participant.EvaluationParticipantDateLastEmailed = email.EmailSentDateTime;
-                        participant.EvaluationParticipantStatusId = 4; // Status for "Invitation Sent"; Todo: define state machine :) 
+                        participant.EvaluationParticipantStatusId = EvaluationParticipantStatusIds.InvitationSent;
                         _db.EvaluationParticipants.Update(participant);
                     }
                 }
@@ -202,7 +203,7 @@ namespace reviews.Services
                     .ToList());
                 participant = _db.EvaluationParticipants.Where(ep => ep.ParticipantId == message.ParticipantId
                                                                   && evaluationRatees.Contains(ep.EvaluationRateeId)
-                                                                  && ep.EvaluationParticipantStatusId == 4).ToList();
+                                                                  && ep.EvaluationParticipantStatusId == EvaluationParticipantStatusIds.InvitationSent).ToList();
             }
             else
             {
@@ -213,7 +214,7 @@ namespace reviews.Services
             {
                 // Update the EvaluationParticipant record with the last emailed date
                 evaluationParticipant.EvaluationParticipantDateLastEmailed = message.EmailSentDateTime;
-                evaluationParticipant.EvaluationParticipantStatusId = 4; // Status for "Invitation Sent"; Todo: define state machine :) 
+                evaluationParticipant.EvaluationParticipantStatusId = EvaluationParticipantStatusIds.InvitationSent;
                 _db.EvaluationParticipants.Update(evaluationParticipant);
             }
 

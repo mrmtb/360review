@@ -1,83 +1,191 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using reviews.Constants;
 using reviews.Models;
+using reviews.Services;
 
+namespace reviews.Controllers.ClientController;
+
+[Authorize(Roles = RoleNames.AdminOrClient)]
 public class ClientController : Controller
 {
-    private readonly ApplicationDbContext _db;
+    private readonly IClientService _clientService;
+    private readonly IReviewSessionService _sessionService;
+    private readonly ILogger<ClientController> _logger;
 
-    public ClientController(ApplicationDbContext db)
+    private Guid LocalClientId { get; set; } = Guid.Empty;
+    private string LocalRole { get; set; } = "";
+
+    public ClientController(
+        IClientService clientService,
+        IReviewSessionService sessionService,
+        ILogger<ClientController> logger)
     {
-        _db = db;
+        _clientService = clientService;
+        _sessionService = sessionService;
+        _logger = logger;
+
+        var sessionData = _sessionService.GetSessionData();
+        if (sessionData != null)
+        {
+            LocalClientId = sessionData.ClientId;
+            LocalRole = sessionData.Role;
+        }
     }
 
-    public IActionResult Index()
+    public async Task<IActionResult> Index()
     {
-        var clients = _db.Clients.ToList();
-        return View(clients);
+        try
+        {
+            var clients = await _clientService.GetAllClientsAsync();
+            return View(clients);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading clients list");
+            return View(new List<Client>());
+        }
     }
 
-    public IActionResult Details(Guid id)
+    public async Task<IActionResult> Details(Guid id)
     {
-        var client = _db.Clients.FirstOrDefault(c => c.ClientId == id);
-        if (client == null) return NotFound();
-        return View(client);
+        try
+        {
+            var client = await _clientService.GetClientDetailsAsync(id);
+            if (client == null)
+            {
+                return NotFound();
+            }
+            return View(client);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading client details for {ClientId}", id);
+            return NotFound();
+        }
     }
 
+    [Authorize(Roles = RoleNames.Admin)]
     public IActionResult Create()
     {
-        return View();
+        return View(_clientService.CreateNewClient());
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Create(Client client)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> Create(Client client)
     {
-        if (ModelState.IsValid)
+        if (!ModelState.IsValid)
         {
-            _db.Clients.Add(client);
-            _db.SaveChanges();
+            return View(client);
+        }
+
+        try
+        {
+            var success = await _clientService.SaveClientAsync(client);
+            if (!success)
+            {
+                ModelState.AddModelError("", ErrorMessages.FailedToCreateClient);
+                return View(client);
+            }
+
             return RedirectToAction(nameof(Index));
         }
-        return View(client);
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating client");
+            ModelState.AddModelError("", "An error occurred while creating the client.");
+            return View(client);
+        }
     }
 
-    public IActionResult Edit(Guid id)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> Edit(Guid id)
     {
-        var client = _db.Clients.FirstOrDefault(c => c.ClientId == id);
-        if (client == null) return NotFound();
-        return View(client);
+        try
+        {
+            var client = await _clientService.GetClientDetailsAsync(id);
+            if (client == null)
+            {
+                return NotFound();
+            }
+            return View(client);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading client for edit {ClientId}", id);
+            return NotFound();
+        }
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Edit(Client client)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> Edit(Client client)
     {
-        if (ModelState.IsValid)
+        if (!ModelState.IsValid)
         {
-            _db.Clients.Update(client);
-            _db.SaveChanges();
+            return View(client);
+        }
+
+        try
+        {
+            var success = await _clientService.SaveClientAsync(client);
+            if (!success)
+            {
+                ModelState.AddModelError("", ErrorMessages.FailedToUpdateClient);
+                return View(client);
+            }
+
             return RedirectToAction(nameof(Index));
         }
-        return View(client);
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating client {ClientId}", client.ClientId);
+            ModelState.AddModelError("", "An error occurred while updating the client.");
+            return View(client);
+        }
     }
 
-    public IActionResult Delete(Guid id)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> Delete(Guid id)
     {
-        var client = _db.Clients.FirstOrDefault(c => c.ClientId == id);
-        if (client == null) return NotFound();
-        return View(client);
+        try
+        {
+            var client = await _clientService.GetClientDetailsAsync(id);
+            if (client == null)
+            {
+                return NotFound();
+            }
+            return View(client);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading client for delete {ClientId}", id);
+            return NotFound();
+        }
     }
 
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
-    public IActionResult DeleteConfirmed(Guid id)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> DeleteConfirmed(Guid id)
     {
-        var client = _db.Clients.FirstOrDefault(c => c.ClientId == id);
-        if (client != null)
+        try
         {
-            _db.Clients.Remove(client);
-            _db.SaveChanges();
+            var success = await _clientService.DeleteClientAsync(id);
+            if (!success)
+            {
+                _logger.LogWarning("Client not found for deletion: {ClientId}", id);
+            }
+
+            return RedirectToAction(nameof(Index));
         }
-        return RedirectToAction(nameof(Index));
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting client {ClientId}", id);
+            return RedirectToAction(nameof(Index));
+        }
     }
 }

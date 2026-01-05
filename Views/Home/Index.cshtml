@@ -6,60 +6,46 @@
 
 @if (User.IsInRole("Admin"))
 {
-    <h4>You are now logged in as an Admin.</h4>
-    <h5>Your active client is @Model.LocalClientName</h5>
-
-    @foreach (var property in Model.GetType().GetProperties())
-    {
-    <div>@property.Name = @property.GetValue(Model)</div>
-    }
-
+    <div class="container mt-4">
+        <h4>Welcome, Administrator</h4>
+        <h5>Active Client: @Model.LocalClientName</h5>
+        <p>Use the navigation menu to manage clients, evaluations, participants, and email templates.</p>
+    </div>
 }
-else if (User.IsInRole("Participant") || Model.LocalClientId != Guid.Empty)
+else if (User.IsInRole("Client"))
 {
-    <h4>You are now logged in.</h4>
-    <h5>@Html.Raw(Model.EvaluationsText)</h5>
-    <h5>@Html.Raw(Model.RatersText)</h5>
-
-    @foreach (var property in Model.GetType().GetProperties())
-    {
-    <div>@property.Name = @property.GetValue(Model)</div>
-    }
+    <div class="container mt-4">
+        <h4>Welcome, @Model.Email</h4>
+        <h5>Client: @Model.LocalClientName</h5>
+        <p>Use the navigation menu to access your client portal.</p>
+    </div>
+}
+else if (User.IsInRole("Participant"))
+{
+    <div class="container mt-4">
+        <h4>Welcome back!</h4>
+        
+        @if (!string.IsNullOrEmpty(Model.RatersText))
+        {
+            <div class="alert alert-info mt-3">
+                <i class="bi bi-info-circle"></i> @Html.Raw(Model.RatersText)
+            </div>
+        }
+        
+        @if (!string.IsNullOrEmpty(Model.EvaluationsText))
+        {
+            <div class="alert alert-primary mt-3">
+                <i class="bi bi-clipboard-check"></i> @Html.Raw(Model.EvaluationsText)
+            </div>
+        }
+    </div>
 }
 else
 {
-    <h2>Welcome to the Behavioral Insights system. Please use the links to the left to register and login.</h2>
+    <div class="container mt-4">
+        <h2>Welcome to the Behavioral Insights System</h2>
+        <p>Please use the links to the left to register and login.</p>
+    </div>
 }
 
-<!--
-<p />
-<h3>Todo items:</h3>
-<ul>
-    <li>Write code to prompt for live/test on email when processed by an admin</li>
-    <li>Create system management screens</li>
-    <li>- <s>Manage client</s></li>
-    <li>- <s>Manage Evaluations</s></li>
-    <li>- <s>Manage emails</s></li>
-    <li>- Manage EvaluationRatee (date overrides)</li>
-    <li>- Manage system</li>
-    <li><s>Determine what needs to be done for the reminders screen</s></li>
-    <li><s>Release invitations for ratee</s></li>
-    <li><s>Remove draft rater function</s></li>
-    <li><s>Fix database for EmailTemplates (client issue)</s></li>
-    <li><s>Determine what needs to be done for the manage invitations screen</s></li>
-    <li><s>Add code to home screen for participant to redirect them to the most-appropriate page based on active evaluations</s></li>
-    <li><s>Fix Manage screen for Clients, Emails on prod server</s></li>
-    <li><s>Wire up session state to pull max raters from the Evaluations table</s></li>
-    <li><s>Move client selection function to Admin Menu, wire up Activate Client function in controller</s></li>
-    <li><s>Add date pickers to the reminders function</s></li>
-    <li><s>Create function to take in an EvaluationParticipantId and email type and create the record in the draft email folder</s></li>
-    <li><s>Enhance reminders screen to allow for sending initial invitation for those who haven't received one (null last email date)</s></li>
-    <li><s>Wire up function to kick off the survey process for a participant</s></li>
-    <li><s>Figure out how to get the data grid on Admin Participants to refresh when toggleActive is called</s></li>
-    <li><s>On Raters screen, ensure combobox is clear when it becomes visible</s></li>
-    <li><s>Create table for holding draft emails</s></li>
-    <li><s>Add client name to session data for replacement of client name in instruction screens</s></li>
-    <li><s>Suppress Your Raters menu item if the participant does not have an active evaluation</s></li>
-    <li><s>Create function to disable participants from the admin screen</s></li>
-</ul>
 -->

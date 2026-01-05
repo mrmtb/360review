@@ -3,7 +3,7 @@ using reviews.Models;
 
 namespace reviews.Services
 {
-    public class ReviewSessionService
+    public class ReviewSessionService : IReviewSessionService
     {
         private const string SessionKey = "SessionData";
         private readonly IHttpContextAccessor _httpContextAccessor;

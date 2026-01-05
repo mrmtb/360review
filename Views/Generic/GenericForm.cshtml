@@ -39,7 +39,7 @@
                 }
                 else if (prop.PropertyType == typeof(DateTime) || prop.PropertyType == typeof(DateTime?))
                 {
-                    <input type="datetime-local" class="form-control" name="@prop.Name" id="@prop.Name" value="@(val is DateTime dt ? dt.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                    <input type="datetime-local" class="form-control" name="@prop.Name" id="@prop.Name" value="@(val is DateTime dt ? dt.ToString("yyyy-MM-ddTHH\\:mm") : "")" />
                 }
                 else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(double) || prop.PropertyType == typeof(decimal))
                 {

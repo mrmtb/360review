@@ -51,22 +51,22 @@
             <div class="mb-3 row align-items-center">
                 <label class="col-2 col-form-label fw-bold" for="EvaluationOpenDate">Evaluation Open Date</label>
                     <div class="col">
-                        <input type="hidden" class="form-control" name="initialEvaluationOpenDate" id="initialEvaluationOpenDate" value="@(@Model.EvaluationOpenDate is DateTime dt1 ? dt1.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
-                        <input type="datetime-local" class="form-control" name="EvaluationOpenDate" id="EvaluationOpenDate" value="@(@Model.EvaluationOpenDate is DateTime dt2 ? dt2.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                        <input type="hidden" class="form-control" name="initialEvaluationOpenDate" id="initialEvaluationOpenDate" value="@(@Model.EvaluationOpenDate is DateTime dt1 ? dt1.ToString("yyyy-MM-ddTHH:mm") : "")" />
+                        <input type="datetime-local" class="form-control" name="EvaluationOpenDate" id="EvaluationOpenDate" value="@(@Model.EvaluationOpenDate is DateTime dt2 ? dt2.ToString("yyyy-MM-ddTHH:mm") : "")" />
                     </div>
             </div>
             <div class="mb-3 row align-items-center">
                 <label class="col-2 col-form-label fw-bold" for="EvaluationRateeDueDate">Evaluation Ratee Due Date</label>
                     <div class="col">
-                        <input type="hidden" class="form-control" name="initialEvaluationRateeDueDate" id="initialEvaluationRateeDueDate" value="@(@Model.EvaluationRateeDueDate is DateTime dt3 ? dt3.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
-                        <input type="datetime-local" class="form-control" name="EvaluationRateeDueDate" id="EvaluationRateeDueDate" value="@(@Model.EvaluationRateeDueDate is DateTime dt4 ? dt4.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                        <input type="hidden" class="form-control" name="initialEvaluationRateeDueDate" id="initialEvaluationRateeDueDate" value="@(@Model.EvaluationRateeDueDate is DateTime dt3 ? dt3.ToString("yyyy-MM-ddTHH:mm") : "")" />
+                        <input type="datetime-local" class="form-control" name="EvaluationRateeDueDate" id="EvaluationRateeDueDate" value="@(@Model.EvaluationRateeDueDate is DateTime dt4 ? dt4.ToString("yyyy-MM-ddTHH:mm") : "")" />
                     </div>
             </div>
             <div class="mb-3 row align-items-center">
                 <label class="col-2 col-form-label fw-bold" for="EvaluationRaterDueDate">Evaluation Rater Due Date</label>
                     <div class="col">
-                        <input type="hidden" class="form-control" name="initialEvaluationRaterDueDate" id="initialEvaluationRaterDueDate" value="@(@Model.EvaluationRaterDueDate is DateTime dt5 ? dt5.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
-                        <input type="datetime-local" class="form-control" name="EvaluationRaterDueDate" id="EvaluationRaterDueDate" value="@(@Model.EvaluationRaterDueDate is DateTime dt6 ? dt6.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")" />
+                        <input type="hidden" class="form-control" name="initialEvaluationRaterDueDate" id="initialEvaluationRaterDueDate" value="@(@Model.EvaluationRaterDueDate is DateTime dt5 ? dt5.ToString("yyyy-MM-ddTHH:mm") : "")" />
+                        <input type="datetime-local" class="form-control" name="EvaluationRaterDueDate" id="EvaluationRaterDueDate" value="@(@Model.EvaluationRaterDueDate is DateTime dt6 ? dt6.ToString("yyyy-MM-ddTHH:mm") : "")" />
                     </div>
             </div>
             <div class="mb-3 row align-items-center">

@@ -24,8 +24,8 @@
                 <td>@item.Client?.ClientName</td>
                 <td>@(item.EvaluationActive ? "Yes" : "No")</td>
                 <td>@(item.EvaluationTestEmails ? "Yes" : "No")</td>
-                <td>@(item.EvaluationOpenDate is DateTime dt1 ? dt1.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")</td>
-                <td>@(item.EvaluationRateeDueDate is DateTime dt2 ? dt2.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : "")</td>
+                <td>@(item.EvaluationOpenDate is DateTime dt1 ? dt1.ToString("yyyy-MM-ddTHH:mm") : "")</td>
+                <td>@(item.EvaluationRateeDueDate is DateTime dt2 ? dt2.ToString("yyyy-MM-ddTHH:mm") : "")</td>
                 <td>
                     <button class="btn btn-sm btn-primary load-details" data-url="GetEvaluationDetails" data-id="@item.EvaluationId">
                         <i class="bi bi-pencil-square"></i> Details

@@ -66,27 +66,6 @@
     
     <script>
         $(document).ready(function () {
-            //$.fn.dataTable.moment = function ( format, locale ) {
-            //    var types = $.fn.dataTable.ext.type;
-            
-                // Add type detection
-            //    types.detect.unshift( function ( d ) {
-            //        return moment( d, format, locale, true ).isValid() ?
-            //            'moment-'+format :
-            //            null;
-            //    } );
-            
-                // Add sorting method - use an integer for the sorting
-            //    types.order[ 'moment-'+format+'-pre' ] = function ( d ) {
-            //        return moment( d, format, locale, true ).unix();
-            //    };
-            //};
-
-            console.log('jQuery version:', $.fn.jquery);
-            console.log('DataTables version:', $.fn.dataTable ? $.fn.dataTable.version : 'DataTables not loaded');
-            console.log('Moment.js version:', moment ? moment.version : 'Moment.js not loaded');
-            console.log($('#participantsTable').length ? 'Table found' : 'Table not found');
-
             $.fn.dataTable.ext.errMode = 'throw';
 
             $.fn.dataTable.moment('M/D/YYYY LT', 'en');
@@ -98,7 +77,8 @@
                 columnDefs: [
                     { targets: -1, orderable: false }, 
                     { targets: -2, orderable: false }, 
-                    { targets: -3, orderable: false } 
+                    { targets: -3, orderable: false },
+                    { type: 'date', targets: 5 } 
                 ]
             });
         });

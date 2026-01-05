@@ -26,9 +26,22 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ReviewSessionService>();
+builder.Services.AddScoped<IReviewSessionService, ReviewSessionService>();
 builder.Services.AddScoped<EmailQueueHelper>();
 builder.Services.AddScoped<IEmailService, EmailFromSender>();
+
+// Add service layer classes
+builder.Services.AddScoped<IParticipantService, ParticipantService>();
+builder.Services.AddScoped<IEvaluationService, EvaluationService>();
+builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IClientService, ClientService>();
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+builder.Services.AddScoped<ISurveyUrlBuilder, SurveyUrlBuilder>();
+builder.Services.AddScoped<ISurveyCompletionService, SurveyCompletionService>();
+builder.Services.AddScoped<IUserRoleService, UserRoleService>();
+builder.Services.AddScoped<ISessionInitializationService, SessionInitializationService>();
+builder.Services.AddScoped<MigrationService>();
+
 builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddControllersWithViews();
