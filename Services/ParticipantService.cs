@@ -258,10 +258,44 @@ public class ParticipantService : IParticipantService
     {
         try
         {
-            // Use parameterized query to prevent SQL injection
-            var result = await _db.Database
-                .SqlQuery<EligibleRaters>($"SELECT * FROM public.\"fnEligibleRaters\"({evaluationRateeId})")
-                .ToListAsync();
+            var result = new List<EligibleRaters>();
+            
+            // Use ADO.NET directly to bypass EF Core mapping issues
+            var connection = _db.Database.GetDbConnection();
+            var needToClose = connection.State != System.Data.ConnectionState.Open;
+            
+            if (needToClose)
+                await connection.OpenAsync();
+            
+            try
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = "SELECT * FROM public.\"fnEligibleRaters\"(@p0)";
+                
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = "@p0";
+                parameter.Value = evaluationRateeId;
+                command.Parameters.Add(parameter);
+                
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    result.Add(new EligibleRaters
+                    {
+                        EvaluationRateeId = reader.GetGuid(reader.GetOrdinal("EvaluationRateeId")),
+                        ParticipantId = reader.GetGuid(reader.GetOrdinal("ParticipantId")),
+                        ParticipantNameFirst = reader.GetString(reader.GetOrdinal("ParticipantNameFirst")),
+                        ParticipantNameLast = reader.GetString(reader.GetOrdinal("ParticipantNameLast")),
+                        ParticipantEmail = reader.GetString(reader.GetOrdinal("ParticipantEmail")),
+                        ParticipantHasRegistered = reader.GetBoolean(reader.GetOrdinal("ParticipantHasRegistered"))
+                    });
+                }
+            }
+            finally
+            {
+                if (needToClose)
+                    await connection.CloseAsync();
+            }
             
             return result;
         }

@@ -268,34 +268,6 @@ namespace reviews.Migrations
                     b.ToTable("Client", "public");
                 });
 
-            modelBuilder.Entity("reviews.Models.EligibleRaters", b =>
-                {
-                    b.Property<Guid>("EvaluationRateeId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ParticipantEmail")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("ParticipantHasRegistered")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid>("ParticipantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ParticipantNameFirst")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ParticipantNameLast")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.ToTable((string)null);
-
-                    b.ToFunction("fnEligibleRaters");
-                });
-
             modelBuilder.Entity("reviews.Models.EmailQueue", b =>
                 {
                     b.Property<int>("EmailQueueId")
