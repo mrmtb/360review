@@ -11,7 +11,7 @@
     @if (Model.Evaluations != null && Model.Evaluations.Any())
     {
         <select class="form-select" id="evaluationSelect" name="SelectedEvaluationId" data-url="@Url.Action("GetRatersForEvaluation", "Admin")" data-url2="@Url.Action("GetRateesForEvaluation", "Admin")">
-            @foreach (var item in Model.Evaluations)
+            @foreach (var item in Model.Evaluations.OrderByDescending(e => e.EvaluationRaterDueDate))
             {
                 <option value="@item.EvaluationId">
                     @item.EvaluationName (@(item.EvaluationActive ? "Active" : "Inactive"))

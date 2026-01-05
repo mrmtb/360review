@@ -1,328 +1,237 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Identity;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Components.Authorization;
-using reviews.Models;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using reviews.Services;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.Extensions.Logging;
+using reviews.Constants;
+using reviews.Models;
+using reviews.Services;
+
+namespace reviews.Controllers.Admin;
 
 public class AdminController : Controller
 {
+    private readonly IParticipantService _participantService;
+    private readonly IEvaluationService _evaluationService;
+    private readonly IInvitationService _invitationService;
+    private readonly IClientService _clientService;
+    private readonly IEmailTemplateService _emailTemplateService;
+    private readonly IReviewSessionService _sessionService;
+    private readonly ILogger<AdminController> _logger;
 
-    private readonly ApplicationDbContext _db;
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly ReviewSessionService _sessionService;
-    private readonly EmailQueueHelper _emailQueueHelper;
+    private Guid LocalClientId => GetSessionData()?.ClientId ?? Guid.Empty;
+    private string LocalEmail => GetSessionData()?.Email ?? string.Empty;
+    private string LocalRole => GetSessionData()?.Role ?? string.Empty;
 
-    private Guid localClientId = new Guid();
-    //private string localClientName = "";
-    //private Guid localUserId;
-    private string localEmail = "";
-    private string localRole = "";
-    //private string localClientLogoLocation = "";
-    //private int localDefaultEvaluationId = -1;
-    //private int localOpenRatings = -1;
-    //private string EvaluationsText = "";
-    //private string RatersText = "";
-
-    public AdminController(ApplicationDbContext db, UserManager<ApplicationUser> userManager, ReviewSessionService sessionService, EmailQueueHelper emailQueueHelper)
+    public AdminController(
+        IParticipantService participantService,
+        IEvaluationService evaluationService,
+        IInvitationService invitationService,
+        IClientService clientService,
+        IEmailTemplateService emailTemplateService,
+        IReviewSessionService sessionService,
+        ILogger<AdminController> logger)
     {
-        _db = db;
-        _userManager = userManager;
+        _participantService = participantService;
+        _evaluationService = evaluationService;
+        _invitationService = invitationService;
+        _clientService = clientService;
+        _emailTemplateService = emailTemplateService;
         _sessionService = sessionService;
-        _emailQueueHelper = emailQueueHelper;
-
-        var sessionData = _sessionService.GetSessionData();
-
-        if (sessionData != null)
-        {
-            //localUserId = ViewBag.UserId;
-            localEmail = sessionData.Email;
-            localRole = sessionData.Role;
-            localClientId = sessionData.ClientId;
-            //localClientName = ViewBag.ClientName;
-            //localClientLogoLocation = ViewBag.ClientLogoLocation;
-            //localDefaultEvaluationId = ViewBag.DefaultEvaluationId;
-            //localOpenRatings = ViewBag.OpenRatingCount;
-        }
-
+        _logger = logger;
     }
 
-    [Authorize(Roles = "Admin")]
-    public IActionResult ViewParticipants()
+    private SessionData? GetSessionData()
     {
-        var participants = _db.ViewAdminParticipants.Where(p => p.ClientId == localClientId).ToList();
+        try
+        {
+            return _sessionService.GetSessionData();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve session data");
+            return null;
+        }
+    }
+
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> ViewParticipants()
+    {
+        var participants = await _participantService.GetParticipantsByClientAsync(LocalClientId);
         return View(participants);
     }
 
-    [Authorize(Roles = "Admin")]
-    public IActionResult ViewRatees()
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> ViewRatees()
     {
-        var ratees = _db.ViewAdminRatees.Where(p => p.ClientId == localClientId).ToList();
+        var ratees = await _evaluationService.GetRateesByClientAsync(LocalClientId);
         return View(ratees);
     }
 
-    [Authorize(Roles = "Admin")]
-    public IActionResult ViewReminders()
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> ViewReminders()
     {
-        var redminders = _db.ViewReminders.Where(p => p.ClientId == localClientId).ToList();
-        return View(redminders);
+        var reminders = await _invitationService.GetRemindersByClientAsync(LocalClientId);
+        return View(reminders);
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public IActionResult RemindRatee(Guid participantId)
     {
         var participantIds = new List<Guid> { participantId };
         return RedirectToAction("ProcessReminders", new { participantIds });
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public IActionResult RemindSelectedRatees(List<Guid> participantIds)
     {
         if (participantIds == null || !participantIds.Any())
         {
-            ModelState.AddModelError("", "No participants selected for reminders.");
+            ModelState.AddModelError("", ErrorMessages.NoParticipantsSelected);
             return RedirectToAction("ViewReminders");
         }
 
         return RedirectToAction("ProcessReminders", new { participantIds });
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> ProcessReminders(List<Guid> participantIds)
     {
-        if (participantIds == null || !participantIds.Any())
+        var success = await _invitationService.ProcessRemindersAsync(participantIds, LocalClientId, LocalEmail);
+        
+        if (!success)
         {
-            ModelState.AddModelError("", "No participants selected for reminders.");
-            return RedirectToAction("ViewReminders");
-        }
-
-        var lastUniqueEmail = "";
-
-        var reminders = await _db.ViewReminders
-                                 .Where(p => p.ClientId == localClientId && participantIds.Contains(p.ParticipantId))
-                                 .OrderBy(o => o.ParticipantEmail)
-                                 .ToListAsync();
-
-        if (!reminders.Any())
-        {
-            ModelState.AddModelError("", "No reminders found for the selected participants.");
-            return RedirectToAction("ViewReminders");
-        }
-
-        var EmailTemplates = _db.EmailTemplates
-            .Where(p => p.ClientId == localClientId && p.EmailTemplateName == "Reminder - General")
-            .ToList();
-
-        foreach (var reminder in reminders)
-        {
-            if (lastUniqueEmail == "")
-            {
-                lastUniqueEmail = reminder.ParticipantEmail;
-            }
-            else if (lastUniqueEmail == reminder.ParticipantEmail)
-            {
-                continue; // Skip if the email is the same as the last one processed
-            }
-            else
-            {
-                lastUniqueEmail = reminder.ParticipantEmail;
-            }
-
-            await _emailQueueHelper.ProcessParticipantsForEmailQueueAsync( MapRemindersToInvitations(new List<vwReminders> { reminder }) , EmailTemplates, false, localEmail);
+            ModelState.AddModelError("", "Failed to process reminders.");
         }
 
         return RedirectToAction("ViewReminders");
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult DumpParticipant(Guid participantId, string returnUrl)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> DumpParticipant(Guid participantId, string returnUrl)
     {
-        var AdminDumpParticipantViewModel = new AdminParticipantViewModel();
-        AdminDumpParticipantViewModel.Participant = _db.Participants.FirstOrDefault(p => p.ParticipantId == participantId);
-        AdminDumpParticipantViewModel.Raters = _db.ViewRatersByRatees.Where(p => p.Ratee == participantId).ToList();
-        AdminDumpParticipantViewModel.Ratees = _db.ViewEvaluationsToComplete.Where(p => p.ParticipantId == participantId).ToList();
-        AdminDumpParticipantViewModel.Evaluations = _db.ViewEvaluationsByRatees.Where(p => p.ParticipantId == participantId).ToList();
+        var viewModel = await _participantService.GetParticipantDumpAsync(participantId);
 
-        if (AdminDumpParticipantViewModel.Participant == null)
+        if (viewModel == null)
         {
             return NotFound();
         }
+        
         ViewBag.ReturnUrl = returnUrl;
-        return View(AdminDumpParticipantViewModel);
+        return View(viewModel);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin,Client")]
-    public IActionResult GetRatersForEvaluation(Guid evaluationId, Guid participantId)
+    [Authorize(Roles = RoleNames.AdminOrClient)]
+    public async Task<IActionResult> GetRatersForEvaluation(Guid evaluationId, Guid participantId)
     {
-        var raters = _db.ViewRatersByRatees
-            .Where(r => r.EvaluationId == evaluationId && r.Ratee == participantId)
-            .ToList();
+        var raters = await _participantService.GetRatersForEvaluationAsync(evaluationId, participantId);
         return PartialView("_RatersTablePartial", raters);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin,Client")]
-    public IActionResult GetRateesForEvaluation(Guid evaluationId, Guid participantId)
+    [Authorize(Roles = RoleNames.AdminOrClient)]
+    public async Task<IActionResult> GetRateesForEvaluation(Guid evaluationId, Guid participantId)
     {
-        var ratees = _db.ViewEvaluationsToComplete
-            .Where(r => r.EvaluationId == evaluationId && r.Rater == participantId)
-            .ToList();
+        var ratees = await _participantService.GetRateesForEvaluationAsync(evaluationId, participantId);
         return PartialView("_RateesTablePartial", ratees);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult GetEvaluationsForManage()
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> GetEvaluationsForManage()
     {
-        var evaluations = _db.Evaluations
-            .Include(e => e.Client)
-            .Where(r => r.ClientId == localClientId)
-            .ToList();
+        var evaluations = await _evaluationService.GetEvaluationsByClientAsync(LocalClientId);
         return PartialView("_ManageEvaluationsPartial", evaluations);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult GetClientsForManage()
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> GetClientsForManage()
     {
-        var clients = _db.Clients
-            .ToList();
-
-        // pass in the localClientId to the ViewData to highlight the active client in the UI
-        ViewData["ActiveClient"] = localClientId;
-        return PartialView("_ManageClientsPartial", clients);
+        var clients = await _clientService.GetAllClientsAsync();
+        ViewData[ViewDataKeys.ActiveClient] = LocalClientId;
+        return PartialView(PartialViewNames.ManageClientsPartial, clients);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult GetEmailTemplatesForManage()
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> GetEmailTemplatesForManage()
     {
-        Console.WriteLine($"Local Client ID: {localClientId}");
-        var emailTemplates = _db.EmailTemplates
-            .Include(et => et.Client)
-            .Where(r => r.ClientId == localClientId)
-            .ToList();
+        _logger.LogInformation("Loading email templates for client {ClientId}", LocalClientId);
+        var emailTemplates = await _emailTemplateService.GetEmailTemplatesByClientAsync(LocalClientId);
         return PartialView("_ManageEmailTemplatesPartial", emailTemplates);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult EditParticipant(Guid participantId, string returnUrl)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> EditParticipant(Guid participantId, string returnUrl)
     {
-        var AdminParticipantViewModel = new AdminParticipantViewModel();
-        AdminParticipantViewModel.Participant = _db.Participants.FirstOrDefault(p => p.ParticipantId == participantId);
-        AdminParticipantViewModel.Raters = new List<vwRatersByRatee>(); // no need to pass it in, the JS will populate on start _db.ViewRatersByRatees.Where(p => p.Ratee == participantId).ToList();
-        AdminParticipantViewModel.Ratees = new List<vwEvaluationsToComplete>(); // no need to pass it in, the JS will populate on start _db.ViewEvaluationsToComplete.Where(p => p.Rater == participantId).ToList();
-        AdminParticipantViewModel.Evaluations = _db.ViewEvaluationsByRatees.Where(p => p.ParticipantId == participantId).ToList();
+        var viewModel = await _participantService.GetParticipantDetailsAsync(participantId);
 
-        if (AdminParticipantViewModel.Participant == null)
+        if (viewModel == null)
         {
             return NotFound();
         }
+        
         ViewBag.ReturnUrl = returnUrl;
-        return View(AdminParticipantViewModel);
+        return View(viewModel);
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
-    public IActionResult SaveParticipant(Participant participant, string returnUrl)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> SaveParticipant(Participant participant, string returnUrl)
     {
-        if (ModelState.IsValid)
+        if (!ModelState.IsValid)
         {
-            _db.Participants.Update(participant);
-            _db.SaveChanges();
             return RedirectToAction(returnUrl);
+        }
+
+        var success = await _participantService.SaveParticipantAsync(participant);
+        if (!success)
+        {
+            ModelState.AddModelError("", ErrorMessages.FailedToSaveParticipant);
         }
 
         return RedirectToAction(returnUrl);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult AddParticipantToEvaluation(Guid participantId, string returnUrl)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> AddParticipantToEvaluation(Guid participantId, string returnUrl)
     {
         if (participantId == Guid.Empty)
         {
-            ModelState.AddModelError("", "Invalid participantId.");
+            ModelState.AddModelError("", ErrorMessages.InvalidParticipantId);
             return RedirectToAction(returnUrl);
         }
-        using (var transaction = _db.Database.BeginTransaction())
+
+        var success = await _participantService.AddParticipantToEvaluationAsync(participantId, LocalClientId);
+        
+        if (!success)
         {
-            try
-            {
-                // Create the EvaluationRatee
-                var EvaluationRatee = new EvaluationRatee
-                {
-                    EvaluationRateeId = Guid.NewGuid(),
-                    EvaluationId = _db.Evaluations
-                        .Where(e => e.ClientId == localClientId && e.EvaluationActive)
-                        .Select(e => e.EvaluationId)
-                        .FirstOrDefault(), // Get the first active evaluation for the client
-                    ParticipantId = participantId,
-                    EvaluationRateeStatusId = _db.EvaluationRateeStatuses
-                        .Where(e => e.EvaluationRateeStatusName == "Draft")
-                        .Select(e => e.EvaluationRateeStatusId)
-                        .FirstOrDefault(),
-                    EvaluationRateeDateAdded = DateTime.UtcNow
-                };
-                _db.EvaluationRatees.Add(EvaluationRatee);
-                _db.SaveChanges();
-
-                // Create the EvaluationParticipant
-                var EvaluationParticipant = new EvaluationParticipant
-                {
-                    EvaluationRateeId = EvaluationRatee.EvaluationRateeId,
-                    ParticipantId = participantId,
-                    ParticipantRoleId = _db.ParticipantRoles
-                        .Where(r => r.ParticipantRoleName == "Self")
-                        .Select(r => r.ParticipantRoleId)
-                        .FirstOrDefault(),
-                    EvaluationParticipantStatusId = _db.EvaluationParticipantStatuses
-                        .Where(e => e.EvaluationParticipantStatusName == "Draft")
-                        .Select(e => e.EvaluationParticipantStatusId)
-                        .FirstOrDefault(),
-                    EvaluationParticipantSurveyPassword = RandomValueGenerator.GenerateRandomValue(),
-                    EvaluationParticipantDateAdded = DateTime.UtcNow
-                };
-                _db.EvaluationParticipants.Add(EvaluationParticipant);
-                _db.SaveChanges();
-
-                // Commit the transaction
-                transaction.Commit();
-
-                return returnUrl != null ? RedirectToAction(returnUrl) : RedirectToAction("ViewParticipants");
-            }
-            catch (Exception ex)
-            {
-                // Rollback the transaction if an error occurs
-                transaction.Rollback();
-                ModelState.AddModelError("", "An error occurred while adding the participant to the evaluation.");
-                Debug.WriteLine($"Transaction failed: {ex.Message}");
-                return RedirectToAction("Error"); // Redirect to an error page or handle appropriately
-            }
+            ModelState.AddModelError("", "An error occurred while adding the participant to the evaluation.");
+            return RedirectToAction(ActionNames.Error);
         }
+
+        return returnUrl != null ? RedirectToAction(returnUrl) : RedirectToAction("ViewParticipants");
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult ToggleParticipant(Guid participantId, string returnUrl)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> ToggleParticipant(Guid participantId, string returnUrl)
     {
-        var participant = _db.Participants.FirstOrDefault(p => p.ParticipantId == participantId);
-        if (participant == null)
+        var success = await _participantService.ToggleParticipantStatusAsync(participantId);
+        
+        if (!success)
         {
-            return NotFound();
-        }
-        else
-        {
-            participant.ParticipantIsActive = !participant.ParticipantIsActive;
-            _db.Participants.Update(participant);
-            _db.SaveChanges();
+            ModelState.AddModelError("", "An error occurred while toggling the participant.");
         }
 
         return RedirectToAction(returnUrl);
@@ -336,12 +245,10 @@ public class AdminController : Controller
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult GetEvaluationDetails(Guid id)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> GetEvaluationDetails(Guid id)
     {
-        var evaluation = _db.Evaluations
-            .Include(e => e.Client) // Include related data if necessary
-            .FirstOrDefault(e => e.EvaluationId == id);
+        var evaluation = await _evaluationService.GetEvaluationDetailsAsync(id);
 
         if (evaluation == null)
         {
@@ -352,82 +259,40 @@ public class AdminController : Controller
         return PartialView("_ManageEvaluationsDetailPartial", evaluation);
     }
 
+
+
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveEvaluation(Evaluation model, string selectedModel)
     {
         if (model == null || model.ClientId == Guid.Empty)
         {
-            return BadRequest("Invalid Evaluation data.");
+            return BadRequest(ErrorMessages.InvalidEvaluationData);
         }
 
-        // Retrieve the existing Evaluation from the database
-        var evaluation = await _db.Evaluations.FirstOrDefaultAsync(e => e.EvaluationId == model.EvaluationId && e.ClientId == localClientId);
-        if (evaluation == null)
-        {
-            evaluation = new Evaluation
-            {
-                EvaluationId = model.EvaluationId,
-                ClientId = model.ClientId
-            };
-        }
-
-        var properties = typeof(Evaluation).GetProperties();
-        foreach (var prop in properties)
-        {
-            // Skip EvaluationId and ClientId (or any other keys you don't want to update)
-            if (prop.Name == "EvaluationId" || prop.Name == "ClientId") continue;
-
-            var newValue = prop.GetValue(model);
-            var oldValue = prop.GetValue(evaluation);
-
-            // Special handling for nullable DateTime properties to ensure UTC conversion
-            if (prop.PropertyType == typeof(DateTime?) && newValue != null)
-            {
-                var dateValue = (DateTime?)newValue;
-                if (dateValue.HasValue)
-                {
-                    var utcValue = DateTime.SpecifyKind(dateValue.Value, DateTimeKind.Local).ToUniversalTime();
-                    if (!oldValue?.Equals(utcValue) ?? true)
-                    {
-                        prop.SetValue(evaluation, utcValue);
-                    }
-                }
-            }
-            else if ((oldValue == null && newValue != null) || (oldValue != null && !oldValue.Equals(newValue)))
-            {
-                prop.SetValue(evaluation, newValue);
-            }
-        }
-
-    if (evaluation.EvaluationId == Guid.Empty)
-        {
-            _db.Evaluations.Add(evaluation);
-        }
-        else
-        {
-            _db.Evaluations.Update(evaluation);
-        }
+        var success = await _evaluationService.SaveEvaluationAsync(model, LocalClientId);
         
-        await _db.SaveChangesAsync();
+        if (!success)
+        {
+            return Forbid();
+        }
+
         return RedirectToAction("ManageIndex", new { selectedModel });
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult SetActiveClient(Guid clientId)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> SetActiveClient(Guid clientId)
     {
-        var client = _db.Clients
-            .FirstOrDefault(c => c.ClientId == clientId);
+        var client = await _clientService.GetClientDetailsAsync(clientId);
 
         if (client == null)
         {
             return NotFound();
         }
 
-        var sessionData = _sessionService.GetSessionData();
-
+        var sessionData = GetSessionData();
         if (sessionData != null)
         {
             sessionData.ClientId = client.ClientId;
@@ -436,16 +301,14 @@ public class AdminController : Controller
             _sessionService.SetSessionData(sessionData);
         }
 
-        //ViewData["SelectedModel"] = "Clients";
         return RedirectToAction("ManageIndex", new { selectedModel = "Clients" });
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult GetClientDetails(Guid id)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> GetClientDetails(Guid id)
     {
-        var client = _db.Clients
-            .FirstOrDefault(c => c.ClientId == id);
+        var client = await _clientService.GetClientDetailsAsync(id);
 
         if (client == null)
         {
@@ -457,79 +320,35 @@ public class AdminController : Controller
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveClient(Client model, string selectedModel)
     {
         if (model == null)
         {
-            return BadRequest("Invalid Client data.");
+            return BadRequest(ErrorMessages.InvalidClientData);
         }
 
-        // Retrieve the existing Client from the database
-        var client = await _db.Clients.FirstOrDefaultAsync(c => c.ClientId == model.ClientId);
-        if (client == null)
-        {
-            client = new Client
-            {
-                ClientId = model.ClientId
-            };
-        }
-
-        // Update existing client
-
-        var properties = typeof(Client).GetProperties();
-        foreach (var prop in properties)
-        {
-            // Skip ClientId (or any other keys you don't want to update)
-            if (prop.Name == "ClientId") continue;
-
-            var newValue = prop.GetValue(model);
-            var oldValue = prop.GetValue(client);
-
-            // Special handling for nullable DateTime properties to ensure UTC conversion
-            if (prop.PropertyType == typeof(DateTime?) && newValue != null)
-            {
-                var dateValue = (DateTime?)newValue;
-                if (dateValue.HasValue)
-                {
-                    var utcValue = DateTime.SpecifyKind(dateValue.Value, DateTimeKind.Local).ToUniversalTime();
-                    if (!oldValue?.Equals(utcValue) ?? true)
-                    {
-                        prop.SetValue(client, utcValue);
-                    }
-                }
-            }
-            else if ((oldValue == null && newValue != null) || (oldValue != null && !oldValue.Equals(newValue)))
-            {
-                prop.SetValue(client, newValue);
-            }
-        }
-
-        if (client.ClientId == Guid.Empty)
-        {
-            client.ClientId = Guid.NewGuid();
-            _db.Clients.Add(client);
-        }
-        else
-        {
-            _db.Clients.Update(client);
-        }
+        var success = await _clientService.SaveClientAsync(model);
         
-        await _db.SaveChangesAsync();
+        if (!success)
+        {
+            ModelState.AddModelError("", ErrorMessages.FailedToSaveClient);
+        }
+
         return RedirectToAction("ManageIndex", new { selectedModel });
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult GetEmailTemplateDetails(Guid id)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> GetEmailTemplateDetails(Guid id)
     {
-        var emailTemplate = _db.EmailTemplates
-            .FirstOrDefault(c => c.EmailTemplateId == id && c.ClientId == localClientId);
+        var emailTemplate = await _emailTemplateService.GetEmailTemplateDetailsAsync(id, LocalClientId);
 
         if (emailTemplate == null)
         {
-            return NotFound("Could not find template with ID: " + id + " for Client ID: " + localClientId);
+            _logger.LogWarning("Email template {TemplateId} not found for client {ClientId}", id, LocalClientId);
+            return NotFound($"Could not find template with ID: {id} for Client ID: {LocalClientId}");
         }
 
         ViewData["SelectedModel"] = "EmailTemplates";
@@ -537,89 +356,34 @@ public class AdminController : Controller
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveEmailTemplate(EmailTemplate model, string selectedModel)
     {
         if (model == null || model.ClientId == Guid.Empty)
         {
-            return BadRequest("Invalid Email Template data.");
+            return BadRequest(ErrorMessages.InvalidEmailTemplateData);
         }
 
-        // Retrieve the existing Client from the database
-        var emailTemplate = await _db.EmailTemplates.FirstOrDefaultAsync(c => c.EmailTemplateId == model.EmailTemplateId);
-        if (emailTemplate == null)
-        {
-            emailTemplate = new EmailTemplate
-            {
-                ClientId = model.ClientId
-            };
-        }
-
-        // Update existing email template
-
-        var properties = typeof(EmailTemplate).GetProperties();
-        foreach (var prop in properties)
-        {
-            // Skip ClientId (or any other keys you don't want to update)
-            if (prop.Name == "ClientId" || prop.Name == "EmailTemplateId") continue;
-
-            var newValue = prop.GetValue(model);
-            var oldValue = prop.GetValue(emailTemplate);
-
-            // Special handling for nullable DateTime properties to ensure UTC conversion
-            if (prop.PropertyType == typeof(DateTime?) && newValue != null)
-            {
-                var dateValue = (DateTime?)newValue;
-                if (dateValue.HasValue)
-                {
-                    var utcValue = DateTime.SpecifyKind(dateValue.Value, DateTimeKind.Local).ToUniversalTime();
-                    if (!oldValue?.Equals(utcValue) ?? true)
-                    {
-                        prop.SetValue(emailTemplate, utcValue);
-                    }
-                }
-            }
-            else if ((oldValue == null && newValue != null) || (oldValue != null && !oldValue.Equals(newValue)))
-            {
-                prop.SetValue(emailTemplate, newValue);
-            }
-        }
-
-        if (emailTemplate.EmailTemplateId == Guid.Empty)
-        {
-            emailTemplate.EmailTemplateId = Guid.NewGuid();
-            _db.EmailTemplates.Add(emailTemplate);
-        }
-        else
-        {
-            _db.EmailTemplates.Update(emailTemplate);
-        }
+        var success = await _emailTemplateService.SaveEmailTemplateAsync(model);
         
-        await _db.SaveChangesAsync();
+        if (!success)
+        {
+            ModelState.AddModelError("", ErrorMessages.FailedToSaveEmailTemplate);
+        }
+
         return RedirectToAction("ManageIndex", new { selectedModel });
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult ViewInvitations()
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> ViewInvitations()
     {
-        var raterInvitations = new List<vwInvitations>(_db.ViewRaterInvitations
-            .Where(p => p.ClientId == localClientId));
-
-        var rateeInvitations = new List<vwInvitations>(_db.ViewRateeInvitations
-            .Where(p => p.ClientId == localClientId));
-
-        var invitations = raterInvitations
-            .Union(rateeInvitations)
-            .OrderBy(p => p.RaterLastName)
-            .ThenBy(p => p.RaterFirstName)
-            .ToList();
-
+        var invitations = await _invitationService.GetInvitationsByClientAsync(LocalClientId);
         return View(invitations);
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public IActionResult InviteParticipant(Guid evaluationRateeId, Guid participantId)
     {
         var participantIds = new List<Guid> { participantId };
@@ -627,74 +391,32 @@ public class AdminController : Controller
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> ProcessInvitations(List<(Guid EvaluationRateeId, Guid ParticipantId)>? participantTuples)
     {
-
-        var raterInvitations = new List<vwInvitations>(_db.ViewRaterInvitations
-            .Where(p => p.ClientId == localClientId));
-
-        var rateeInvitations = new List<vwInvitations>(_db.ViewRateeInvitations
-            .Where(p => p.ClientId == localClientId));
-
-        var invitations = raterInvitations
-            .Union(rateeInvitations)
-            .OrderBy(p => p.RaterLastName)
-            .ThenBy(p => p.RaterFirstName)
-            .ToList();
-
-        if (participantTuples != null && participantTuples.Any())
+        var success = await _invitationService.ProcessInvitationsAsync(participantTuples, LocalClientId, LocalEmail);
+        
+        if (!success)
         {
-            // If participantTuples are provided, use them to filter invitations
-            invitations = invitations.Where(i => participantTuples.Any(t => t.ParticipantId == i.RaterParticipantId && t.EvaluationRateeId == i.EvaluationRateeId)).ToList();
+            ModelState.AddModelError("", ErrorMessages.FailedToProcessInvitations);
         }
 
-        var messages = new List<EmailTemplate>(_db.EmailTemplates
-            .Where(t => t.ClientId == localClientId));
-
-        await _emailQueueHelper.ProcessParticipantsForEmailQueueAsync(invitations, messages, false, localEmail);
         return RedirectToAction("ViewInvitations");
     }
 
-    private bool EvaluationExists(Guid id)
-    {
-        return _db.Evaluations.Any(e => e.EvaluationId == id);
-    }
-    
-    public List<vwInvitations> MapRemindersToInvitations(List<vwReminders> reminders)
-    {
-        return reminders.Select(reminder => new vwInvitations
-        {
-            RateeFirstName = reminder.RateeNameFirst,
-            RateeLastName = reminder.RateeNameLast,
-            RaterRole = reminder.ParticipantRoleName,
-            RaterFirstName = reminder.ParticipantNameFirst,
-            RaterLastName = reminder.ParticipantNameLast,
-            RaterEmail = reminder.ParticipantEmail,
-            RaterParticipantId = reminder.ParticipantId,
-            EvaluationRateeId = reminder.EvaluationRateeId,
-            EvaluationTestEmails = reminder.EvaluationTestEmails,
-            DueDate = reminder.DueDate,
-            ClientName = reminder.ClientName,
-            ClientId = reminder.ClientId,
-            ClientHelpContact = reminder.ClientHelpContact,
-            MessageToSend = reminder.MessageToSend
-        }).ToList();
-    }
-
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult EmailQueueDashboard()
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> EmailQueueDashboard()
     {
-        var emailQueue = _db.EmailQueue.OrderByDescending(e => e.EmailQueuedDateTime).ToList();
+        var emailQueue = await _emailTemplateService.GetEmailQueueAsync();
         return View(emailQueue);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult PreviewEmail(int id)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> PreviewEmail(int id)
     {
-    var email = _db.EmailQueue.FirstOrDefault(e => e.EmailQueueId == id);
+        var email = await _emailTemplateService.GetEmailDetailsAsync(id);
         if (email == null)
         {
             return NotFound();
@@ -704,64 +426,53 @@ public class AdminController : Controller
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult RetryEmail(int id)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> RetryEmail(int id)
     {
-    var email = _db.EmailQueue.FirstOrDefault(e => e.EmailQueueId == id);
-        if (email == null || email.EmailSent)
+        var success = await _emailTemplateService.RetryEmailAsync(id);
+        if (!success)
         {
-            return BadRequest("Email not found or already sent.");
+            return BadRequest(ErrorMessages.EmailNotFoundOrSent);
         }
 
-        email.EmailSent = false; // Reset the sent status
-        _db.SaveChanges();
-
-        return RedirectToAction("EmailQueueDashboard");
+        return RedirectToAction(ActionNames.EmailQueueDashboard);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public IActionResult CancelEmail(int id)
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> CancelEmail(int id)
     {
-    var email = _db.EmailQueue.FirstOrDefault(e => e.EmailQueueId == id);
-        if (email == null || email.EmailSent)
+        var success = await _emailTemplateService.CancelEmailAsync(id);
+        if (!success)
         {
-            return BadRequest("Email not found or already sent.");
+            return BadRequest(ErrorMessages.EmailNotFoundOrSent);
         }
 
-        _db.EmailQueue.Remove(email);
-        _db.SaveChanges();
-
-        return RedirectToAction("EmailQueueDashboard");
+        return RedirectToAction(ActionNames.EmailQueueDashboard);
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public IActionResult CreateItem(string selectedModel)
     {
         switch (selectedModel)
         {
             case "GetEvaluationsForManage":
-                // Return the edit partial view for Evaluation (empty model for create)
                 ViewData["SelectedModel"] = "Evaluations";
-                return PartialView("_ManageEvaluationsDetailPartial", new Evaluation
-                {
-                    EvaluationId = Guid.Empty, //indicates the new item interface
-                    ClientId = localClientId
-                });
+                return PartialView("_ManageEvaluationsDetailPartial", 
+                    _evaluationService.CreateNewEvaluation(LocalClientId));
+            
             case "GetClientsForManage":
-                // Return the edit partial view for Client (empty model for create)
                 ViewData["SelectedModel"] = "Clients";
-                return PartialView("_ManageClientsDetailPartial", new Client());
+                return PartialView("_ManageClientsDetailPartial", 
+                    _clientService.CreateNewClient());
+            
             case "GetEmailTemplatesForManage":
-                // Return the edit partial view for Email Template (empty model for create)
                 ViewData["SelectedModel"] = "EmailTemplates";
-                return PartialView("_ManageEmailTemplatesDetailPartial", new EmailTemplate
-                {
-                    ClientId = localClientId
-                });
+                return PartialView("_ManageEmailTemplatesDetailPartial", 
+                    _emailTemplateService.CreateNewEmailTemplate(LocalClientId));
+            
             default:
-                // Optionally, return a default partial or error
                 return Content("Unknown model type: " + selectedModel);
         }
     }

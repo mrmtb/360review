@@ -61,37 +61,6 @@
         var rowsPerPage = 25;
         var $tableRows;
 
-        //function getFilteredRows() {
-        //    var filter = $('#searchBox').val().toLowerCase();
-        //    return $('#remindersTable tbody tr').filter(function () {
-        //        var text = $(this).find('td').slice(0, 3).text().toLowerCase();
-        //        return text.indexOf(filter) > -1;
-        //    });
-       // }
-
-        //function renderTable(page) {
-        //    $tableRows = getFilteredRows();
-        //    var totalRows = $tableRows.length;
-        //    var pageCount = Math.ceil(totalRows / rowsPerPage);
-
-        //    $('#pagination').empty();
-        //    if (pageCount > 1) {
-        //        for (var i = 1; i <= pageCount; i++) {
-        //            $('#pagination').append(
-        //                `<li class="page-item${i === page ? ' active' : ''}">
-        //                    <a class="page-link" href="#">${i}</a>
-        //                </li>`
-        //            );
-        //        }
-        //    }
-
-            // Hide all rows first
-        //    $('#remindersTable tbody tr').hide();
-
-            // Show only the filtered rows for the current page
-        //    $tableRows.slice((page - 1) * rowsPerPage, page * rowsPerPage).show();
-        //}
-
         $(document).ready(function () {
             console.log("Initializing reminders table...");
             // Initialize DataTable with custom column definitions
@@ -100,15 +69,14 @@
                 //"order": [[ $('#remindersTable thead th').length - 2, 'desc' ]], // Default sort on the next to last column
                 columnDefs: [
                     { targets: 0, orderable: false }, // Make the first column not sortable
-                    { targets: -1, orderable: false } // Make the last column not sortable
+                    { targets: -1, orderable: false }, // Make the last column not sortable
+                    { type: 'date', targets: [4, 5] } // Make the date columns sortable
                 ]        
             });
-            //renderTable(1);
 
             $('#pagination').on('click', 'a', function (e) {
                 e.preventDefault();
                 var page = parseInt($(this).text());
-                //renderTable(page);
             });
 
             // Add event listener to the header checkbox

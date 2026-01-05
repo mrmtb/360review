@@ -1,0 +1,33 @@
+{
+  "Migration": {
+    "Enabled": false,
+    "AdminEmails": [
+      "matthew@blackmon.org",
+      "chris@behavioralinsights.com"
+    ],
+    "AdminPassword": "Admin123!",
+    "TestUsers": [
+      {
+        "Email": "jonathan.ahmedu@momentivetech.com",
+        "Role": ""
+      },
+      {
+        "Email": "eric.james@momentivetech.com",
+        "Role": ""
+      },
+      {
+        "Email": "aubrey.harper@momentivetech.com",
+        "Role": ""
+      },
+      {
+        "Email": "berlin.streif@momentivetech.com",
+        "Role": ""
+      },
+      {
+        "Email": "dawn.krencisz@momentivetech.com",
+        "Role": ""
+      }
+    ],
+    "TestUserPassword": "Admin123!"
+  }
+}

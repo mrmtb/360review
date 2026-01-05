@@ -218,8 +218,8 @@ namespace reviews.Migrations
                     ON      ep.""EvaluationParticipantStatusId"" = eps.""EvaluationParticipantStatusId""
                 WHERE
                     p.""ParticipantIsActive"" = TRUE AND
-                    p2.""ParticipantIsActive"" = TRUE AND
-                    e.""EvaluationActive"" = TRUE
+                    p2.""ParticipantIsActive"" = TRUE --AND
+                    --e.""EvaluationActive"" = TRUE
                 ORDER BY    
                     p.""ParticipantEmail"" ASC,
                     pr.""ParticipantRoleId"" ASC,

@@ -72,9 +72,8 @@ public class GenericController : Controller
                     }
                     else if (DateTime.TryParse(raw, out var parsedDate))
                     {
-                        // Ensure the DateTime is treated as local and converted to UTC
-                        var utcDate = DateTime.SpecifyKind(parsedDate, DateTimeKind.Local).ToUniversalTime();
-                        typedValue = utcDate;
+                        // No manual conversion needed; EF Core value converter will handle UTC/local
+                        typedValue = parsedDate;
                     }
                 }
                 else if (prop.PropertyType == typeof(bool) || prop.PropertyType == typeof(bool?))

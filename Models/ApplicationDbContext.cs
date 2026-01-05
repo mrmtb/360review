@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 
 namespace reviews.Models;
@@ -474,6 +475,57 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
         {
             throw new InvalidOperationException("Could not find method info for fnEligibleRaters.");
         }
+
+        // DateTime conversion to ensure DateTimeKind is handled automatically
+
+        var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
+            v => v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, // Store as UTC
+            v => DateTime.SpecifyKind(v, DateTimeKind.Utc).ToLocalTime() // Read as Local
+        );
+
+        // Evaluation
+        modelBuilder.Entity<Evaluation>()
+            .Property(e => e.EvaluationOpenDate)
+            .HasConversion(dateTimeConverter);
+
+        modelBuilder.Entity<Evaluation>()
+            .Property(e => e.EvaluationRateeDueDate)
+            .HasConversion(dateTimeConverter);
+
+        modelBuilder.Entity<Evaluation>()
+            .Property(e => e.EvaluationRaterDueDate)
+            .HasConversion(dateTimeConverter);
+
+        // EvaluationParticipant
+        modelBuilder.Entity<EvaluationParticipant>()
+            .Property(e => e.EvaluationParticipantDateLastEmailed)
+            .HasConversion(dateTimeConverter);
+
+        modelBuilder.Entity<EvaluationParticipant>()
+            .Property(e => e.EvaluationParticipantDateCompleted)
+            .HasConversion(dateTimeConverter);
+
+        // EvaluationRatee
+        modelBuilder.Entity<EvaluationRatee>()
+            .Property(e => e.EvaluationRateeDateAdded)
+            .HasConversion(dateTimeConverter);
+
+        modelBuilder.Entity<EvaluationRatee>()
+            .Property(e => e.EvaluationRateeDueDateOverride)
+            .HasConversion(dateTimeConverter);
+
+        modelBuilder.Entity<EvaluationRatee>()
+            .Property(e => e.EvaluationRaterDueDateOverride)
+            .HasConversion(dateTimeConverter);
+
+        // EmailQueue
+        modelBuilder.Entity<EmailQueue>()
+            .Property(e => e.EmailQueuedDateTime)
+            .HasConversion(dateTimeConverter);
+
+        modelBuilder.Entity<EmailQueue>()
+            .Property(e => e.EmailSentDateTime)
+            .HasConversion(dateTimeConverter);
 
         OnModelCreatingPartial(modelBuilder);
     }

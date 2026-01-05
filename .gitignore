@@ -8,7 +8,7 @@
 *.userosscache
 *.sln.docstates
 .DS_Store
-*.sql
+
 
 # User-specific folders
 .vscode/
@@ -16,6 +16,8 @@
 # Migration-related files
 Controllers/Migration/
 Views/Migration/
+Migrations/SQL
+360reviews.sql
 
 # Logs
 *.log
