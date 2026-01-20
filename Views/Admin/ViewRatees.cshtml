@@ -5,22 +5,20 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.0.0/css/dataTables.bootstrap5.min.css">
 }
 
 <h4>Ratees</h4>
 
-<table class="table table-hover table-striped align-middle shadow-sm rounded" id="rateesTable">
-    <thead class="table-light">
+<table class="table table-hover table-sm align-middle" id="rateesTable">
+    <thead>
         <tr>
             <th>Email</th>
             <th>First Name</th>
             <th>Last Name</th>
             <th>Date Added</th>
             <th>Date Last Emailed</th>
-            <th></th>
-            <th></th>
-            <th></th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -34,30 +32,26 @@
             <td>@p.EvaluationRateeDateAdded?.ToString("g")</td>
             <td>@p.EvaluationParticipantDateLastEmailed?.ToString("g")</td>
             <td>
-                <a asp-action="ViewRaters" asp-controller="Participant" asp-route-participantId="@p.ParticipantId" asp-route-evaluationId="@p.EvaluationId" class="btn btn-sm btn-sm-nopad">
-                    <i class="bi bi-arrow-right-square"></i>&nbsp;Edit
-                </a>
-            </td>
-            <td>
-                <a asp-action="ToggleParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="ViewRatees" class="btn btn-sm btn-sm-nopad @(p.ParticipantIsActive ? "text-danger" : "text-success")">
-                    <i class="bi bi-exclamation-diamond"></i>&nbsp;@(p.ParticipantIsActive ? "Disable" : "Re-enable")
-                </a>
-            </td>
-            <td>
-                @{
-                    if (p.EvaluationParticipantDateLastEmailed.HasValue)
+                <div class="btn-group btn-group-sm" role="group">
+                    <a asp-action="ViewRaters" asp-controller="Participant" asp-route-participantId="@p.ParticipantId" asp-route-evaluationId="@p.EvaluationId" class="btn btn-outline-primary" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <a asp-action="ToggleParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="ViewRatees" class="btn @(p.ParticipantIsActive ? "btn-outline-danger" : "btn-outline-success")" title="@(p.ParticipantIsActive ? "Disable" : "Re-enable")">
+                        <i class="bi bi-@(p.ParticipantIsActive ? "x-circle" : "check-circle")"></i>
+                    </a>
+                    @if (p.EvaluationParticipantDateLastEmailed.HasValue)
                     {
-                <a asp-action="RemindParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="ViewRatees" class="btn btn-sm btn-sm-nopad">
-                    <i class="bi bi-bookmarks"></i>&nbsp;Remind
-                </a>
+                        <a asp-action="RemindParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="ViewRatees" class="btn btn-outline-info" title="Send Reminder">
+                            <i class="bi bi-envelope"></i>
+                        </a>
                     }
                     else
                     {
-                <a asp-action="InviteParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="ViewRatees" class="btn btn-sm btn-sm-nopad">
-                    <i class="bi bi-calendar-event"></i>&nbsp;Invite
-                </a>
+                        <a asp-action="InviteParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="ViewRatees" class="btn btn-outline-success" title="Send Invitation">
+                            <i class="bi bi-send"></i>
+                        </a>
                     }
-                }
+                </div>
             </td>
         </tr>
     }
@@ -69,19 +63,23 @@
 </nav>
 
 @section Scripts {
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"> </script>
+    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.bootstrap5.min.js"></script>
     <script>
         $(document).ready(function () {
             $('#rateesTable').DataTable({
-                "searching": true,
-                "pageLength": 25,
-                "saveState": true,
+                responsive: true,
+                pageLength: 25,
+                saveState: true,
+                order: [[0, 'asc']],
                 columnDefs: [
-                    { targets: -1, orderable: false }, 
-                    { targets: -2, orderable: false }, 
-                    { targets: -3, orderable: false },
-                    { type: 'date', targets: [4, 5] }
-                ]
+                    { targets: 5, orderable: false },
+                    { type: 'date', targets: [3, 4] }
+                ],
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search ratees..."
+                }
             });
         });
     </script>

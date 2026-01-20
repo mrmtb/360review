@@ -4,12 +4,16 @@
     ViewBag.Title = "Evaluations to Complete";
 }
 
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.0.0/css/dataTables.bootstrap5.min.css">
+}
+
     <h3>Evaluations to complete:</h3>
 
     <p>Thank you for providing feedback. You have an opportunity to help these individuals enhance their performance by providing honest, objective feedback.</p>
 
-    <div class="=table-responsive">
-        <table class="table table-striped table-hover" id="EvaluationsTable">
+    <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle" id="EvaluationsTable">
             <thead>
                 <tr>
                     <th>Ratee Name</th>
@@ -89,3 +93,24 @@
         <p>When you have completed the survey, click the SUBMIT SURVEY button to send the results for processing. If you have not completed the entire survey, you may save your answers by clicking FINISH LATER. If you save your survey, remember to return at a later time to complete and submit your survey.</p>
         </blockquote>
     </div>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#EvaluationsTable').DataTable({
+                responsive: true,
+                pageLength: 25,
+                order: [[2, 'asc']],
+                columnDefs: [
+                    { targets: -1, orderable: false }
+                ],
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search evaluations..."
+                }
+            });
+        });
+    </script>
+}

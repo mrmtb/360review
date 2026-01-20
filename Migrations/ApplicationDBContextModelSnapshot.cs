@@ -18,7 +18,7 @@ namespace reviews.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("public")
-                .HasAnnotation("ProductVersion", "9.0.9")
+                .HasAnnotation("ProductVersion", "10.0.2")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -44,6 +44,58 @@ namespace reviews.Migrations
                     b.ToTable("DataProtectionKeys", "public");
                 });
 
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityPasskeyData", b =>
+                {
+                    b.Property<byte[]>("Id")
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("AttestationObject")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("ClientDataJson")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("CredentialId")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsBackedUp")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsBackupEligible")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsUserVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<long>("SignCount")
+                        .HasColumnType("bigint");
+
+                    b.PrimitiveCollection<string[]>("Transports")
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AspNetPasskeys", "public");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<string>", b =>
                 {
                     b.Property<string>("Id")
@@ -67,7 +119,7 @@ namespace reviews.Migrations
 
                     b.ToTable("AspNetRoles", "public");
 
-                    b.HasDiscriminator().HasValue("IdentityRole<string>");
+                    b.HasDiscriminator<string>("Discriminator").HasValue("IdentityRole<string>");
 
                     b.UseTphMappingStrategy();
                 });
@@ -136,6 +188,38 @@ namespace reviews.Migrations
                     b.HasKey("LoginProvider", "ProviderKey");
 
                     b.ToTable("AspNetUserLogins", "public");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserPasskey<string>", b =>
+                {
+                    b.Property<byte[]>("Id")
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("CredentialId")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("DataId")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataId");
+
+                    b.ToTable("AspNetUserPasskeys", "public");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
@@ -1153,6 +1237,17 @@ namespace reviews.Migrations
                     b.HasBaseType("Microsoft.AspNetCore.Identity.IdentityRole<string>");
 
                     b.HasDiscriminator().HasValue("IdentityRole");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserPasskey<string>", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityPasskeyData", "Data")
+                        .WithMany()
+                        .HasForeignKey("DataId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Data");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
