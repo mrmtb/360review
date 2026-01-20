@@ -5,17 +5,20 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.0.0/css/dataTables.bootstrap5.min.css">
 }
 
-<h4>Invitation Queue</h4>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Invitation Queue</h4>
+    <form method="post" asp-action="ProcessInvitations">
+        <button type="submit" id="processInvitationsBtn" class="btn btn-primary" title="Process Invitations" disabled>
+            <i class="bi bi-envelope-plus"></i> Process Invitations
+        </button>
+    </form>
+</div>
 
-<a asp-action="ProcessInvitations" class="btn btn-primary mb-3" title="Process Invitations">
-    <i class="bi bi-envelope-plus"></i> Process Invitations
-</a>
-
-<table class="table table-hover table-striped align-middle shadow-sm rounded" id="invitationsTable">
-    <thead class="table-light">
+<table class="table table-hover table-sm align-middle" id="invitationsTable">
+    <thead>
         <tr>
             <th>Recipient</th>
             <th>Role</th>
@@ -53,5 +56,22 @@
 </nav>
 
 @section Scripts {
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"> </script>
+    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#invitationsTable').DataTable({
+                responsive: true,
+                pageLength: 25,
+                order: [[3, 'asc']],
+                columnDefs: [
+                    { targets: -1, orderable: false }
+                ],
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search invitations..."
+                }
+            });
+        });
+    </script>
 }

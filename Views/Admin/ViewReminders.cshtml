@@ -5,18 +5,17 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.0.0/css/dataTables.bootstrap5.min.css">
 }
 
-    <h4>Send reminders:</h4>
-    <p>
-        <form id="participantForm" method="post" action="/Admin/RemindSelectedRatees">
-            <button type="submit" id="submitButton" class="btn btn-primary">Send Reminders</button>
-            <br />
-        </form>
-    </p>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Send reminders</h4>
+    <form id="participantForm" method="post" action="/Admin/RemindSelectedRatees">
+        <button type="submit" id="submitButton" class="btn btn-primary" disabled>Send Reminders</button>
+    </form>
+</div>
 
-<table class="table table-striped table-hover table-condensed" id="remindersTable">
+<table class="table table-hover table-sm align-middle" id="remindersTable">
     <thead>
         <tr>
             <th class="no-sort"><input type="checkbox" id="selectAll" /></th>
@@ -56,7 +55,8 @@
 </nav>
 
 @section Scripts {
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"> </script>
+    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.bootstrap5.min.js"></script>
     <script>
         var rowsPerPage = 25;
         var $tableRows;
@@ -65,13 +65,18 @@
             console.log("Initializing reminders table...");
             // Initialize DataTable with custom column definitions
             $('#remindersTable').DataTable({
-                "pageLength": 25,
-                //"order": [[ $('#remindersTable thead th').length - 2, 'desc' ]], // Default sort on the next to last column
+                responsive: true,
+                pageLength: 25,
+                order: [[4, 'desc']],
                 columnDefs: [
-                    { targets: 0, orderable: false }, // Make the first column not sortable
-                    { targets: -1, orderable: false }, // Make the last column not sortable
-                    { type: 'date', targets: [4, 5] } // Make the date columns sortable
-                ]        
+                    { targets: 0, orderable: false },
+                    { targets: -1, orderable: false },
+                    { type: 'date', targets: [4, 5] }
+                ],
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search reminders..."
+                }
             });
 
             $('#pagination').on('click', 'a', function (e) {

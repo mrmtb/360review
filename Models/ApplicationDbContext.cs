@@ -87,6 +87,60 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
     {
         modelBuilder.HasDefaultSchema("public");
 
+        // Configure IdentityPasskeyData (new in .NET 10)
+        modelBuilder.Entity<IdentityPasskeyData>(entity =>
+        {
+            entity.Property<byte[]>("Id")
+                .HasColumnType("bytea");
+
+            entity.HasKey("Id");
+
+            entity.Property<string>("UserId")
+                .IsRequired()
+                .HasColumnType("text");
+
+            entity.Property<string>("Name")
+                .IsRequired()
+                .HasColumnType("text");
+
+            entity.Property<byte[]>("PublicKey")
+                .IsRequired()
+                .HasColumnType("bytea");
+
+            entity.Property<byte[]>("CredentialId")
+                .IsRequired()
+                .HasColumnType("bytea");
+
+            entity.ToTable("AspNetPasskeys");
+        });
+
+        // Configure IdentityUserPasskey (new in .NET 10)
+        modelBuilder.Entity<IdentityUserPasskey<string>>(entity =>
+        {
+            entity.Property<byte[]>("Id")
+                .HasColumnType("bytea");
+
+            entity.HasKey("Id");
+
+            entity.Property<string>("UserId")
+                .IsRequired()
+                .HasColumnType("text");
+
+            entity.Property<string>("Name")
+                .IsRequired()
+                .HasColumnType("text");
+
+            entity.Property<byte[]>("PublicKey")
+                .IsRequired()
+                .HasColumnType("bytea");
+
+            entity.Property<byte[]>("CredentialId")
+                .IsRequired()
+                .HasColumnType("bytea");
+
+            entity.ToTable("AspNetUserPasskeys");
+        });
+
         modelBuilder.Entity<IdentityUserLogin<string>>(entity =>
         {
             entity.Property<string>("LoginProvider")

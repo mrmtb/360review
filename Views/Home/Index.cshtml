@@ -23,21 +23,39 @@ else if (User.IsInRole("Client"))
 else if (User.IsInRole("Participant"))
 {
     <div class="container mt-4">
-        <h4>Welcome back!</h4>
+        <h4 class="mb-4">Welcome back!</h4>
         
-        @if (!string.IsNullOrEmpty(Model.RatersText))
-        {
-            <div class="alert alert-info mt-3">
-                <i class="bi bi-info-circle"></i> @Html.Raw(Model.RatersText)
-            </div>
-        }
-        
-        @if (!string.IsNullOrEmpty(Model.EvaluationsText))
-        {
-            <div class="alert alert-primary mt-3">
-                <i class="bi bi-clipboard-check"></i> @Html.Raw(Model.EvaluationsText)
-            </div>
-        }
+        <div class="row g-4">
+            @if (!string.IsNullOrEmpty(Model.RatersText))
+            {
+                <div class="col-md-6">
+                    <div class="card border-info shadow-sm h-100 card-hover">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-info-circle text-info me-2"></i>
+                                Action Required
+                            </h5>
+                            <p class="card-text">@Html.Raw(Model.RatersText)</p>
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            @if (!string.IsNullOrEmpty(Model.EvaluationsText))
+            {
+                <div class="col-md-6">
+                    <div class="card border-primary shadow-sm h-100 card-hover">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-clipboard-check text-primary me-2"></i>
+                                Evaluations
+                            </h5>
+                            <p class="card-text">@Html.Raw(Model.EvaluationsText)</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
     </div>
 }
 else
@@ -47,5 +65,3 @@ else
         <p>Please use the links to the left to register and login.</p>
     </div>
 }
-
--->
