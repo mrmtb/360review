@@ -1,0 +1,189 @@
+name: Build and Deploy to Plesk
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  checks: write
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+    
+    - name: Restore dependencies
+      run: dotnet restore 360review.csproj
+      
+    - name: Build
+      run: dotnet build 360review.csproj --configuration Release --no-restore
+      
+    - name: Test
+      run: dotnet test 360review.Tests/360review.Tests.csproj --no-restore --verbosity normal --logger "trx;LogFileName=test-results.trx"
+      
+    - name: Publish Test Results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Test Results
+        path: '**/*.trx'
+        reporter: dotnet-trx
+        
+    - name: Publish Application
+      run: dotnet publish 360review.csproj --configuration Release --output ./publish --no-build
+      
+    - name: Create Artifact
+      run: |
+        Compress-Archive -Path ./publish/* -DestinationPath ./360review-${{ github.sha }}.zip
+      
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: 360review-app-${{ github.sha }}
+        path: ./360review-${{ github.sha }}.zip
+        retention-days: 30
+
+  deploy-staging:
+    name: Deploy to Staging (Plesk)
+    needs: build-and-test
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    runs-on: windows-latest
+    environment: 
+      name: staging
+      url: https://staging.yourdomain.com
+    
+    steps:
+    - name: Download Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: 360review-app-${{ github.sha }}
+        
+    - name: Deploy to Plesk Staging
+      shell: pwsh
+      run: |
+        # Setup WinRM connection
+        $securePassword = ConvertTo-SecureString "${{ secrets.DEPLOY_PASSWORD }}" -AsPlainText -Force
+        $credential = New-Object System.Management.Automation.PSCredential("${{ secrets.DEPLOY_USER }}", $securePassword)
+        
+        # Create remote session
+        $session = New-PSSession -ComputerName ${{ secrets.DEPLOY_SERVER }} -Credential $credential
+        
+        # Copy artifact to server
+        Copy-Item -Path "./360review-${{ github.sha }}.zip" -Destination "C:\temp\" -ToSession $session
+        
+        # Execute deployment script
+        Invoke-Command -Session $session -ScriptBlock {
+          param($BuildNumber, $Domain, $DbHost, $DbName, $DbUser, $DbPassword)
+          
+          # Set environment variables for deployment
+          $env:DB_HOST = $DbHost
+          $env:DB_NAME = $DbName
+          $env:DB_USER = $DbUser
+          $env:DB_PASSWORD = $DbPassword
+          $env:GH_PAT = "${{ secrets.GITHUB_TOKEN }}"
+          
+          # Run Plesk deployment script
+          cd C:\Plesk\Scripts
+          .\Deploy-Production-Plesk.ps1 -BuildNumber $BuildNumber -Domain $Domain
+        } -ArgumentList @(
+          "${{ github.sha }}",
+          "staging.yourdomain.com",
+          "${{ secrets.DB_HOST }}",
+          "${{ secrets.DB_NAME }}",
+          "${{ secrets.DB_USER }}",
+          "${{ secrets.DB_PASSWORD }}"
+        )
+        
+        # Cleanup
+        Remove-PSSession $session
+
+  deploy-production:
+    name: Deploy to Production (Plesk)
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    runs-on: windows-latest
+    environment: 
+      name: production
+      url: https://reviews.yourdomain.com
+    
+    steps:
+    - name: Download Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: 360review-app-${{ github.sha }}
+        
+    - name: Deploy to Plesk Production
+      shell: pwsh
+      run: |
+        # Setup WinRM connection
+        $securePassword = ConvertTo-SecureString "${{ secrets.DEPLOY_PASSWORD }}" -AsPlainText -Force
+        $credential = New-Object System.Management.Automation.PSCredential("${{ secrets.DEPLOY_USER }}", $securePassword)
+        
+        # Create remote session
+        $session = New-PSSession -ComputerName ${{ secrets.DEPLOY_SERVER }} -Credential $credential
+        
+        # Copy artifact to server
+        Copy-Item -Path "./360review-${{ github.sha }}.zip" -Destination "C:\temp\" -ToSession $session
+        
+        # Execute deployment script
+        Invoke-Command -Session $session -ScriptBlock {
+          param($BuildNumber, $Domain, $DbHost, $DbName, $DbUser, $DbPassword)
+          
+          # Set environment variables for deployment
+          $env:DB_HOST = $DbHost
+          $env:DB_NAME = $DbName
+          $env:DB_USER = $DbUser
+          $env:DB_PASSWORD = $DbPassword
+          $env:GH_PAT = "${{ secrets.GITHUB_TOKEN }}"
+          
+          # Run Plesk deployment script
+          cd C:\Plesk\Scripts
+          .\Deploy-Production-Plesk.ps1 -BuildNumber $BuildNumber -Domain $Domain
+        } -ArgumentList @(
+          "${{ github.sha }}",
+          "reviews.yourdomain.com",
+          "${{ secrets.DB_HOST }}",
+          "${{ secrets.DB_NAME }}",
+          "${{ secrets.DB_USER }}",
+          "${{ secrets.DB_PASSWORD }}"
+        )
+        
+        # Cleanup
+        Remove-PSSession $session
+        
+    - name: Notify Deployment Success
+      if: success()
+      run: |
+        Write-Host "✅ Production deployment completed successfully!"
+        Write-Host "Build: ${{ github.sha }}"
+        Write-Host "URL: https://reviews.yourdomain.com"
