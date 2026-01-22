@@ -285,20 +285,54 @@ function Download-Artifact {
         }
         
         try {
+            Write-Log "Listing artifacts from: $ArtifactUrl" "INFO"
+            
+            # Check if token exists
+            if ([string]::IsNullOrEmpty($GitHubToken)) {
+                throw "GitHub token (GH_PAT) is not set. Please set it with: [Environment]::SetEnvironmentVariable('GH_PAT', 'your_token', 'Machine')"
+            }
+            
+            $tokenPreview = if ($GitHubToken.Length -gt 10) { $GitHubToken.Substring(0, 10) + "..." } else { "***" }
+            Write-Log "Using token: $tokenPreview (length: $($GitHubToken.Length))" "INFO"
+            
             # List artifacts and find the one matching our build
             $artifacts = Invoke-RestMethod -Uri $ArtifactUrl -Headers $headers
+            Write-Log "Found $($artifacts.total_count) total artifacts" "INFO"
+            
             $artifact = $artifacts.artifacts | Where-Object { $_.name -like "*$BuildNumber*" } | Select-Object -First 1
             
             if (-not $artifact) {
+                Write-Log "Available artifacts:" "ERROR"
+                $artifacts.artifacts | ForEach-Object { Write-Log "  - $($_.name)" "ERROR" }
                 throw "Artifact not found for build: $BuildNumber"
             }
             
-            Write-Log "Downloading artifact: $($artifact.name)" "INFO"
-            $downloadUrl = $artifact.archive_download_url
-            Invoke-WebRequest -Uri $downloadUrl -Headers $headers -OutFile $tempZip
-            Write-Log "Download completed" "INFO"
+            Write-Log "Found artifact: $($artifact.name) (ID: $($artifact.id))" "INFO"
+            Write-Log "Download URL: $($artifact.archive_download_url)" "INFO"
+            
+            # Try to download
+            try {
+                Invoke-WebRequest -Uri $artifact.archive_download_url -Headers $headers -OutFile $tempZip -ErrorAction Stop
+                Write-Log "Download completed successfully" "INFO"
+            } catch {
+                Write-Log "Download failed with status: $($_.Exception.Response.StatusCode)" "ERROR"
+                Write-Log "Response: $($_.Exception.Response.StatusDescription)" "ERROR"
+                Write-Log "Error details: $($_.ErrorDetails.Message)" "ERROR"
+                
+                # The issue is likely that archive_download_url redirects and loses auth
+                # Try using the API to get the download URL
+                Write-Log "Attempting alternative download method..." "INFO"
+                $downloadUrl = "https://api.github.com/repos/mrmtb/360review/actions/artifacts/$($artifact.id)/zip"
+                Write-Log "Using direct API URL: $downloadUrl" "INFO"
+                Invoke-WebRequest -Uri $downloadUrl -Headers $headers -OutFile $tempZip -ErrorAction Stop
+                Write-Log "Alternative download succeeded" "INFO"
+            }
         } catch {
             Write-Log "Failed to download artifact: $_" "ERROR"
+            Write-Log "Exception type: $($_.Exception.GetType().FullName)" "ERROR"
+            if ($_.Exception.Response) {
+                Write-Log "HTTP Status: $($_.Exception.Response.StatusCode.value__)" "ERROR"
+            }
             throw
         }
     }
