@@ -100,8 +100,11 @@ jobs:
         $securePassword = ConvertTo-SecureString "${{ secrets.DEPLOY_PASSWORD }}" -AsPlainText -Force
         $credential = New-Object System.Management.Automation.PSCredential("${{ secrets.DEPLOY_USER }}", $securePassword)
         
-        # Create remote session
-        $session = New-PSSession -ComputerName ${{ secrets.DEPLOY_SERVER }} -Credential $credential
+        # Configure session options for HTTPS with valid SSL cert
+        $sessionOptions = New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck
+        
+        # Create remote session using HTTPS (port 5986)
+        $session = New-PSSession -ComputerName "rdp.behavioralsurveys.com" -Credential $credential -UseSSL -SessionOption $sessionOptions -Port 5986
         
         # Copy artifact to server
         Copy-Item -Path "./360review-${{ github.sha }}.zip" -Destination "C:\temp\" -ToSession $session
