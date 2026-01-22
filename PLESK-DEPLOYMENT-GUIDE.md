@@ -128,8 +128,8 @@ The script will:
 [Environment]::SetEnvironmentVariable("DB_PASSWORD", "secure_password", "Machine")
 [Environment]::SetEnvironmentVariable("GH_PAT", "your_github_pat", "Machine")
 
-# Reconfigure Plesk vhost to apply changes
-& "${env:plesk_bin}\websrvmng.exe" --reconfigure-vhost --vhost-name="reviews.yourdomain.com"
+# Restart IIS to apply environment variable changes
+iisreset
 ```
 
 ### Step 5: Configure SSL Certificate
@@ -254,12 +254,12 @@ $domain = "reviews.yourdomain.com"
 ### Restart Application
 
 ```powershell
-# Via Plesk command
-& "${env:plesk_bin}\websrvmng.exe" --reconfigure-vhost --vhost-name="reviews.yourdomain.com"
-
-# Or via IIS if accessible
+# Option 1: Restart app pool (recommended)
 Import-Module WebAdministration
 Restart-WebAppPool -Name "reviews.yourdomain.com"
+
+# Option 2: IIS reset (restarts all sites)
+iisreset
 ```
 
 ### View Logs
@@ -291,7 +291,8 @@ $httpdocs = "C:\Inetpub\vhosts\$domain\httpdocs"
 $backupPath = "C:\Plesk\Backups\360review"
 
 # Stop app pool
-& "${env:plesk_bin}\websrvmng.exe" --reconfigure-vhost --vhost-name=$domain
+Import-Module WebAdministration
+Stop-WebAppPool -Name $domain
 
 # Get latest backup
 $latestBackup = Get-ChildItem $backupPath |
@@ -304,7 +305,8 @@ Remove-Item "$httpdocs\*" -Recurse -Force
 Copy-Item "$($latestBackup.FullName)\*" -Destination $httpdocs -Recurse
 
 # Restart
-& "${env:plesk_bin}\websrvmng.exe" --reconfigure-vhost --vhost-name=$domain
+Import-Module WebAdministration
+Start-WebAppPool -Name $domain
 ```
 
 ### Health Checks
@@ -411,8 +413,9 @@ $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
 $acl.SetAccessRule($rule)
 Set-Acl $httpdocs $acl
 
-# Reconfigure vhost
-& "${env:plesk_bin}\websrvmng.exe" --reconfigure-vhost --vhost-name=$domain
+# Restart app pool
+Import-Module WebAdministration
+Restart-WebAppPool -Name $domain
 ```
 
 ### Database Connection Fails

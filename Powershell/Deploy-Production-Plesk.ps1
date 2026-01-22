@@ -19,7 +19,7 @@ param(
     [string]$GitHubToken = $env:GH_PAT,
     [string]$PleskVhostsPath = "C:\Inetpub\vhosts",
     [string]$BackupPath = "C:\Plesk\Backups\360review",
-    [string]$PleskBin = "${env:plesk_bin}",
+    [string]$PleskAdminBin = "${env:plesk_bin}",
     [switch]$SkipMigrations = $false,
     [switch]$SkipBackup = $false,
     [switch]$DryRun = $false
@@ -28,6 +28,15 @@ param(
 $ErrorActionPreference = "Stop"
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $deploymentLog = Join-Path $BackupPath "deployment-$timestamp.log"
+
+# Derive Plesk paths - admin tools are in admin\bin64, domain tools are in bin
+$PleskRoot = if ($PleskAdminBin) {
+    Split-Path (Split-Path $PleskAdminBin -Parent) -Parent
+} else {
+    "C:\Program Files (x86)\Plesk"
+}
+$PleskBin = Join-Path $PleskRoot "bin"
+$PleskAdminBinResolved = Join-Path $PleskRoot "admin\bin64"
 
 # Calculate paths
 $SitePath = Join-Path $PleskVhostsPath "$Domain\httpdocs"
@@ -50,9 +59,19 @@ function Get-PleskAppPool {
     $appPoolName = $Domain
     
     # Try to get the app pool from Plesk
-    if (Test-Path $PleskBin) {
+    if (Test-Path $PleskAdminBinResolved) {
         try {
-            $pleskInfo = & "$PleskBin\websrvmng.exe" --reconfigure-vhost --vhost-name=$Domain --verbose
+            $websrvmngPath = Join-Path $PleskAdminBinResolved "websrvmng.exe"
+            $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $processInfo.FileName = $websrvmngPath
+            $processInfo.Arguments = "--reconfigure-vhost --vhost-name=$Domain --verbose"
+            $processInfo.RedirectStandardOutput = $true
+            $processInfo.UseShellExecute = $false
+            $processInfo.CreateNoWindow = $true
+            $process = New-Object System.Diagnostics.Process
+            $process.StartInfo = $processInfo
+            $process.Start() | Out-Null
+            $process.WaitForExit()
             Write-Log "Plesk vhost info retrieved" "INFO"
         } catch {
             Write-Log "Could not query Plesk, using default app pool name" "WARN"
@@ -98,7 +117,16 @@ function Start-PleskAppPool {
                 Write-Log "App pool started successfully" "INFO"
             } else {
                 # Use Plesk's reconfigure to restart
-                & "$PleskBin\websrvmng.exe" --reconfigure-vhost --vhost-name=$Domain
+                $websrvmngPath = Join-Path $PleskAdminBinResolved "websrvmng.exe"
+                $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+                $processInfo.FileName = $websrvmngPath
+                $processInfo.Arguments = "--reconfigure-vhost --vhost-name=$Domain"
+                $processInfo.UseShellExecute = $false
+                $processInfo.CreateNoWindow = $true
+                $process = New-Object System.Diagnostics.Process
+                $process.StartInfo = $processInfo
+                $process.Start() | Out-Null
+                $process.WaitForExit()
                 Write-Log "Plesk vhost reconfigured" "INFO"
             }
         } catch {
@@ -113,9 +141,18 @@ function Recycle-PleskAppPool {
     Write-Log "Recycling Application Pool via Plesk" "INFO"
     if (-not $DryRun) {
         try {
-            if (Test-Path $PleskBin) {
+            if (Test-Path $PleskAdminBinResolved) {
                 # Use Plesk command to recycle
-                & "$PleskBin\websrvmng.exe" --reconfigure-vhost --vhost-name=$Domain
+                $websrvmngPath = Join-Path $PleskAdminBinResolved "websrvmng.exe"
+                $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+                $processInfo.FileName = $websrvmngPath
+                $processInfo.Arguments = "--reconfigure-vhost --vhost-name=$Domain"
+                $processInfo.UseShellExecute = $false
+                $processInfo.CreateNoWindow = $true
+                $process = New-Object System.Diagnostics.Process
+                $process.StartInfo = $processInfo
+                $process.Start() | Out-Null
+                $process.WaitForExit()
                 Write-Log "Application pool recycled via Plesk" "INFO"
             } else {
                 # Fallback to direct IIS management
