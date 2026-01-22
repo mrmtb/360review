@@ -1,18 +1,11 @@
-name: Build, Test and Deploy
+name: Build, Test and Deploy (DISABLED - Use build-publish-plesk.yml)
 
 permissions:
   checks: write
   contents: read
   
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:  # Manual trigger only
     inputs:
       environment:
         description: 'Deployment environment'
