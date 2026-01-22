@@ -111,49 +111,84 @@ jobs:
         
         # Execute deployment script directly without downloading artifact again
         Invoke-Command -Session $session -ScriptBlock {
-          param($ZipFile, $Domain, $DbHost, $DbName, $DbUser, $DbPassword, $BackupPath)
+          param($ZipFile, $Domain, $DbHost, $DbName, $DbUser, $DbPassword, $BackupPath, $PleskVhostsPath)
           
-          # Set environment variables for deployment
+          $ErrorActionPreference = "Stop"
+          Import-Module WebAdministration -ErrorAction SilentlyContinue
+          
+          # Set environment variables
           $env:DB_HOST = $DbHost
           $env:DB_NAME = $DbName
           $env:DB_USER = $DbUser
           $env:DB_PASSWORD = $DbPassword
           
-          # Source the deployment script functions
-          . C:\Plesk\Scripts\Deploy-Production-Plesk.ps1
+          $SitePath = Join-Path $PleskVhostsPath "$Domain\httpdocs"
+          $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+          $backupDir = $null
           
-          # Get app pool
-          $appPoolName = Get-PleskAppPool
-          
-          # Execute deployment steps directly
           try {
-            Write-Host "Starting deployment for $Domain"
+            Write-Host "Starting deployment for $Domain to $SitePath"
             
             # Stop app pool
-            Stop-PleskAppPool -AppPoolName $appPoolName
-            
-            # Backup
-            $backupDir = Backup-CurrentDeployment
-            
-            # Deploy
-            Deploy-Application -ZipFile $ZipFile
-            
-            # Migrations
-            $migrationSuccess = Invoke-DatabaseMigration
-            if (-not $migrationSuccess) {
-              throw "Migration failed"
+            Write-Host "Stopping application pool: $Domain"
+            if (Test-Path "IIS:\AppPools\$Domain") {
+              Stop-WebAppPool -Name $Domain -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 5
             }
             
+            # Backup current deployment
+            if (Test-Path $SitePath) {
+              $backupDir = Join-Path $BackupPath "$Domain-$timestamp"
+              Write-Host "Creating backup at: $backupDir"
+              if (-not (Test-Path $BackupPath)) {
+                New-Item -ItemType Directory -Path $BackupPath -Force | Out-Null
+              }
+              Copy-Item -Path $SitePath -Destination $backupDir -Recurse -Force
+            }
+            
+            # Clear existing files (except protected directories)
+            Write-Host "Clearing existing deployment files..."
+            $excludeDirs = @("logs", "App_Data", "plesk-stat", "statistics", "error_docs", "_private")
+            Get-ChildItem -Path $SitePath -ErrorAction SilentlyContinue | Where-Object { 
+              $_.Name -notin $excludeDirs 
+            } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            
+            # Extract new deployment
+            Write-Host "Extracting deployment from $ZipFile..."
+            Expand-Archive -Path $ZipFile -DestinationPath $SitePath -Force
+            
+            # Set permissions
+            Write-Host "Setting permissions..."
+            $acl = Get-Acl $SitePath
+            $iisRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+              "IIS_IUSRS", "Modify", "ContainerInherit,ObjectInherit", "None", "Allow"
+            )
+            $acl.SetAccessRule($iisRule)
+            Set-Acl $SitePath $acl
+            
             # Start app pool
-            Start-PleskAppPool -AppPoolName $appPoolName
+            Write-Host "Starting application pool: $Domain"
+            if (Test-Path "IIS:\AppPools\$Domain") {
+              Start-WebAppPool -Name $Domain -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 5
+            }
             
             Write-Host "Deployment completed successfully"
           } catch {
             Write-Host "Deployment failed: $_"
-            if ($backupDir) {
-              Restore-FromBackup -BackupDir $backupDir
+            
+            # Rollback if we have a backup
+            if ($backupDir -and (Test-Path $backupDir)) {
+              Write-Host "Rolling back to backup..."
+              Remove-Item "$SitePath\*" -Recurse -Force -ErrorAction SilentlyContinue
+              Copy-Item "$backupDir\*" -Destination $SitePath -Recurse -Force
             }
-            Start-PleskAppPool -AppPoolName $appPoolName
+            
+            # Try to start app pool anyway
+            if (Test-Path "IIS:\AppPools\$Domain") {
+              Start-WebAppPool -Name $Domain -ErrorAction SilentlyContinue
+            }
+            
             throw
           }
         } -ArgumentList @(
@@ -163,7 +198,8 @@ jobs:
           "${{ secrets.DB_NAME }}",
           "${{ secrets.DB_USER }}",
           "${{ secrets.DB_PASSWORD }}",
-          "C:\Plesk\Backups\360review"
+          "C:\Plesk\Backups\${Domain}",
+          "C:\Inetpub\vhosts"
         )
         
         # Cleanup
