@@ -85,7 +85,7 @@ jobs:
     runs-on: windows-latest
     environment: 
       name: staging
-      url: https://staging.yourdomain.com
+      url: https://staging.behavioralsurveys.com
     
     steps:
     - name: Download Artifact
@@ -125,7 +125,7 @@ jobs:
           .\Deploy-Production-Plesk.ps1 -BuildNumber $BuildNumber -Domain $Domain
         } -ArgumentList @(
           "${{ github.sha }}",
-          "staging.yourdomain.com",
+          "staging.behavioralsurveys.com",
           "${{ secrets.DB_HOST }}",
           "${{ secrets.DB_NAME }}",
           "${{ secrets.DB_USER }}",
@@ -142,7 +142,7 @@ jobs:
     runs-on: windows-latest
     environment: 
       name: production
-      url: https://reviews.yourdomain.com
+      url: https://behavioralsurveys.com
     
     steps:
     - name: Download Artifact
@@ -179,7 +179,7 @@ jobs:
           .\Deploy-Production-Plesk.ps1 -BuildNumber $BuildNumber -Domain $Domain
         } -ArgumentList @(
           "${{ github.sha }}",
-          "reviews.yourdomain.com",
+          "behavioralsurveys.com",
           "${{ secrets.DB_HOST }}",
           "${{ secrets.DB_NAME }}",
           "${{ secrets.DB_USER }}",
@@ -194,4 +194,4 @@ jobs:
       run: |
         Write-Host "✅ Production deployment completed successfully!"
         Write-Host "Build: ${{ github.sha }}"
-        Write-Host "URL: https://reviews.yourdomain.com"
+        Write-Host "URL: https://behavioralsurveys.com"
