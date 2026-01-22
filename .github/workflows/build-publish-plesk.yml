@@ -45,7 +45,9 @@ jobs:
           ${{ runner.os }}-nuget-
     
     - name: Restore dependencies
-      run: dotnet restore 360review.csproj
+      run: |
+        dotnet restore 360review.csproj
+        dotnet restore 360review.Tests/360review.Tests.csproj
       
     - name: Build
       run: dotnet build 360review.csproj --configuration Release --no-restore
