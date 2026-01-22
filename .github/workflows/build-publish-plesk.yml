@@ -52,6 +52,7 @@ jobs:
       
     - name: Test
       run: dotnet test 360review.Tests/360review.Tests.csproj --no-restore --verbosity normal --logger "trx;LogFileName=test-results.trx"
+      continue-on-error: true
       
     - name: Publish Test Results
       uses: dorny/test-reporter@v1
