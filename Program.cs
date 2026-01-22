@@ -81,11 +81,8 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
-builder.Services.AddDbContext<DataProtectionKeyContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("ApplicationDBConnection")));
-
 builder.Services.AddDataProtection()
-    .PersistKeysToDbContext<DataProtectionKeyContext>()
+    .PersistKeysToDbContext<ApplicationDbContext>()
     .SetApplicationName("360ReviewApp");
 
 builder.Services.AddTransient<IEmailSender, EmailSender>();
