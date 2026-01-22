@@ -109,27 +109,61 @@ jobs:
         # Copy artifact to server
         Copy-Item -Path "./360review-${{ github.sha }}.zip" -Destination "C:\temp\" -ToSession $session
         
-        # Execute deployment script
+        # Execute deployment script directly without downloading artifact again
         Invoke-Command -Session $session -ScriptBlock {
-          param($BuildNumber, $Domain, $DbHost, $DbName, $DbUser, $DbPassword)
+          param($ZipFile, $Domain, $DbHost, $DbName, $DbUser, $DbPassword, $BackupPath)
           
           # Set environment variables for deployment
           $env:DB_HOST = $DbHost
           $env:DB_NAME = $DbName
           $env:DB_USER = $DbUser
           $env:DB_PASSWORD = $DbPassword
-          $env:GH_PAT = "${{ secrets.GITHUB_TOKEN }}"
           
-          # Run Plesk deployment script
-          cd C:\Plesk\Scripts
-          .\Deploy-Production-Plesk.ps1 -BuildNumber $BuildNumber -Domain $Domain
+          # Source the deployment script functions
+          . C:\Plesk\Scripts\Deploy-Production-Plesk.ps1
+          
+          # Get app pool
+          $appPoolName = Get-PleskAppPool
+          
+          # Execute deployment steps directly
+          try {
+            Write-Host "Starting deployment for $Domain"
+            
+            # Stop app pool
+            Stop-PleskAppPool -AppPoolName $appPoolName
+            
+            # Backup
+            $backupDir = Backup-CurrentDeployment
+            
+            # Deploy
+            Deploy-Application -ZipFile $ZipFile
+            
+            # Migrations
+            $migrationSuccess = Invoke-DatabaseMigration
+            if (-not $migrationSuccess) {
+              throw "Migration failed"
+            }
+            
+            # Start app pool
+            Start-PleskAppPool -AppPoolName $appPoolName
+            
+            Write-Host "Deployment completed successfully"
+          } catch {
+            Write-Host "Deployment failed: $_"
+            if ($backupDir) {
+              Restore-FromBackup -BackupDir $backupDir
+            }
+            Start-PleskAppPool -AppPoolName $appPoolName
+            throw
+          }
         } -ArgumentList @(
-          "${{ github.sha }}",
+          "C:\temp\360review-${{ github.sha }}.zip",
           "staging.behavioralsurveys.com",
           "${{ secrets.DB_HOST }}",
           "${{ secrets.DB_NAME }}",
           "${{ secrets.DB_USER }}",
-          "${{ secrets.DB_PASSWORD }}"
+          "${{ secrets.DB_PASSWORD }}",
+          "C:\Plesk\Backups\360review"
         )
         
         # Cleanup
