@@ -11,12 +11,21 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Domain,
     
-    [string]$PleskBin = "${env:plesk_bin}",
+    [string]$PleskAdminBin = "${env:plesk_bin}",
     [string]$PleskVhostsPath = "C:\Inetpub\vhosts",
     [switch]$EnableSSL = $false
 )
 
 $ErrorActionPreference = "Stop"
+
+# Derive Plesk paths - admin tools are in admin\bin64, domain tools are in bin
+$PleskRoot = if ($PleskAdminBin) {
+    Split-Path (Split-Path $PleskAdminBin -Parent) -Parent
+} else {
+    "C:\Program Files (x86)\Plesk"
+}
+$PleskBin = Join-Path $PleskRoot "bin"
+$PleskAdminBinResolved = Join-Path $PleskRoot "admin\bin64"
 
 function Write-ColorOutput {
     param([string]$Message, [string]$Color = "White")
@@ -38,6 +47,8 @@ if (-not (Test-Path $PleskBin)) {
 
 Write-ColorOutput "Configuring Plesk domain for ASP.NET Core 10 application" "Cyan"
 Write-ColorOutput "Domain: $Domain" "White"
+Write-ColorOutput "Plesk Root: $PleskRoot" "Gray"
+Write-ColorOutput "Plesk Bin: $PleskBin" "Gray"
 
 # Calculate paths
 $DomainPath = Join-Path $PleskVhostsPath $Domain
@@ -46,11 +57,48 @@ $LogsPath = Join-Path $HttpDocsPath "logs"
 
 # Check if domain exists in Plesk
 Write-ColorOutput "`nChecking if domain exists in Plesk..." "Cyan"
+
+$domainExePath = Join-Path $PleskBin "domain.exe"
+Write-ColorOutput "Using Plesk binary: $domainExePath" "Gray"
+Write-ColorOutput "File exists: $(Test-Path $domainExePath)" "Gray"
+Write-ColorOutput "Checking domain: $Domain" "Gray"
+
+if (-not (Test-Path $domainExePath)) {
+    Write-ColorOutput "ERROR: domain.exe not found at: $domainExePath" "Red"
+    Write-ColorOutput "PleskBin variable: $PleskBin" "Red"
+    exit 1
+}
+
 $domainExists = $false
 try {
-    & "$PleskBin\domain.exe" --info $Domain 2>&1 | Out-Null
-    $domainExists = $?
+    # Use Start-Process to handle paths with spaces more reliably
+    $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $processInfo.FileName = $domainExePath
+    $processInfo.Arguments = "--info $Domain"
+    $processInfo.RedirectStandardOutput = $true
+    $processInfo.RedirectStandardError = $true
+    $processInfo.UseShellExecute = $false
+    $processInfo.CreateNoWindow = $true
+    
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $processInfo
+    $process.Start() | Out-Null
+    $output = $process.StandardOutput.ReadToEnd()
+    $errorOutput = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+    $exitCode = $process.ExitCode
+    
+    Write-ColorOutput "Exit code: $exitCode" "Gray"
+    if ($output) { Write-ColorOutput "Output: $output" "Gray" }
+    if ($errorOutput) { Write-ColorOutput "Error: $errorOutput" "Gray" }
+    
+    # Check exit code - Plesk returns 0 on success
+    if ($exitCode -eq 0) {
+        $domainExists = $true
+    }
 } catch {
+    Write-ColorOutput "Exception caught: $_" "Red"
+    Write-ColorOutput "Exception type: $($_.Exception.GetType().FullName)" "Red"
     $domainExists = $false
 }
 
@@ -123,11 +171,13 @@ $hostingBundle = Get-ChildItem "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Updates\.NE
     Where-Object { $_.GetValue("DisplayName") -like "*ASP.NET Core*10*Hosting Bundle*" }
 
 if (-not $hostingBundle) {
-    Write-ColorOutput "WARNING: ASP.NET Core 10 Hosting Bundle not found!" "Red"
-    Write-ColorOutput "Download from: https://dotnet.microsoft.com/download/dotnet/10.0" "Yellow"
-    Write-ColorOutput "Install the 'Hosting Bundle' package" "Yellow"
+    Write-ColorOutput "WARNING: ASP.NET Core Hosting Bundle not found!" "Red"
+    Write-ColorOutput "Download from: https://dotnet.microsoft.com/download/dotnet" "Yellow"
+    Write-ColorOutput "Install the latest 'Hosting Bundle' package" "Yellow"
+    Write-ColorOutput "After installation, run: iisreset" "Yellow"
 } else {
-    Write-ColorOutput "ASP.NET Core 10 Hosting Bundle is installed" "Green"
+    $bundleName = $hostingBundle.GetValue("DisplayName")
+    Write-ColorOutput "ASP.NET Core Hosting Bundle found: $bundleName" "Green"
 }
 
 # Get application pool name
@@ -230,8 +280,31 @@ if ($EnableSSL) {
 # Reconfigure vhost in Plesk
 Write-ColorOutput "`nReconfiguring Plesk vhost..." "Cyan"
 try {
-    & "$PleskBin\websrvmng.exe" --reconfigure-vhost --vhost-name=$Domain | Out-Null
-    Write-ColorOutput "Vhost reconfigured successfully" "Green"
+    $websrvmngPath = Join-Path $PleskAdminBinResolved "websrvmng.exe"
+    
+    if (-not (Test-Path $websrvmngPath)) {
+        Write-ColorOutput "websrvmng.exe not found at: $websrvmngPath" "Yellow"
+        Write-ColorOutput "Skipping vhost reconfiguration" "Yellow"
+    } else {
+        $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $processInfo.FileName = $websrvmngPath
+        $processInfo.Arguments = "--reconfigure-vhost --vhost-name=$Domain"
+        $processInfo.RedirectStandardOutput = $true
+        $processInfo.RedirectStandardError = $true
+        $processInfo.UseShellExecute = $false
+        $processInfo.CreateNoWindow = $true
+        
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $processInfo
+        $process.Start() | Out-Null
+        $process.WaitForExit()
+        
+        if ($process.ExitCode -eq 0) {
+            Write-ColorOutput "Vhost reconfigured successfully" "Green"
+        } else {
+            Write-ColorOutput "Vhost reconfiguration returned code: $($process.ExitCode)" "Yellow"
+        }
+    }
 } catch {
     Write-ColorOutput "Could not reconfigure vhost: $_" "Yellow"
     Write-ColorOutput "You may need to reconfigure manually in Plesk" "Yellow"
