@@ -194,39 +194,7 @@ jobs:
             $acl.SetAccessRule($iisRule)
             Set-Acl $SitePath $acl
             
-            # Run database migrations
-            Write-Log "Running database migrations..."
-            try {
-              $dllPath = Join-Path $SitePath "360review.dll"
-              if (Test-Path $dllPath) {
-                # Ensure dotnet-ef is installed
-                Write-Log "Installing/updating dotnet-ef tool..."
-                & dotnet tool install --global dotnet-ef 2>&1 | Out-Null
-                if ($LASTEXITCODE -ne 0) {
-                  Write-Log "Tool already installed, updating..."
-                  & dotnet tool update --global dotnet-ef
-                }
-                
-                # Run migrations
-                $env:ASPNETCORE_ENVIRONMENT = "Production"
-                Push-Location $SitePath
-                & dotnet ef database update --no-build --verbose
-                Pop-Location
-                
-                if ($LASTEXITCODE -eq 0) {
-                  Write-Log "Database migrations completed successfully"
-                } else {
-                  Write-Log "Warning: Database migration returned exit code $LASTEXITCODE"
-                }
-              } else {
-                Write-Log "Warning: Could not find 360review.dll, skipping migrations"
-              }
-            } catch {
-              Write-Log "Warning: Database migration failed: $_"
-              Write-Log "Deployment will continue, but manual migration may be required"
-            }
-            
-            # Start app pool
+            # Start app pool (migrations will run automatically on app startup)
             Write-Log "Starting application pool: $Domain"
             if (Test-Path "IIS:\AppPools\$Domain") {
               Start-WebAppPool -Name $Domain -ErrorAction SilentlyContinue
