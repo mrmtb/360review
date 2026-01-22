@@ -5,12 +5,14 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 
 namespace reviews.Models;
 
 public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser, 
                                                               IdentityRole, 
-                                                              string> 
+                                                              string>, 
+                                          IDataProtectionKeyContext 
                                                               /*,
                                                               -- these items not needed as we're only using user and role 
                                                               IdentityUserClaim<string>,
@@ -72,6 +74,9 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
     public DbSet<vwRatersByRatee> ViewRatersByRatees { get; set; }
 
     public DbSet<vwReminders> ViewReminders { get; set; }
+
+    // Data Protection keys table
+    public DbSet<Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey> DataProtectionKeys { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
