@@ -111,7 +111,7 @@ jobs:
         
         # Execute deployment script directly without downloading artifact again
         Invoke-Command -Session $session -ScriptBlock {
-          param($ZipFile, $Domain, $DbHost, $DbName, $DbUser, $DbPassword, $BackupPath, $PleskVhostsPath)
+          param($ZipFile, $Domain, $DbHost, $DbName, $DbUser, $DbPassword, $BackupRootPath, $PleskVhostsPath)
           
           $ErrorActionPreference = "Stop"
           Import-Module WebAdministration -ErrorAction SilentlyContinue
@@ -124,13 +124,26 @@ jobs:
           
           $SitePath = Join-Path $PleskVhostsPath "$Domain\httpdocs"
           $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+          $BackupPath = Join-Path $BackupRootPath $Domain
+          $deploymentLog = Join-Path $BackupPath "deployment-$timestamp.log"
           $backupDir = $null
           
+          # Function to log messages
+          function Write-Log {
+            param([string]$Message)
+            $logMessage = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+            Write-Host $logMessage
+            if (-not (Test-Path (Split-Path $deploymentLog))) {
+              New-Item -ItemType Directory -Path (Split-Path $deploymentLog) -Force | Out-Null
+            }
+            Add-Content -Path $deploymentLog -Value $logMessage
+          }
+          
           try {
-            Write-Host "Starting deployment for $Domain to $SitePath"
+            Write-Log "Starting deployment for $Domain to $SitePath"
             
             # Stop app pool
-            Write-Host "Stopping application pool: $Domain"
+            Write-Log "Stopping application pool: $Domain"
             if (Test-Path "IIS:\AppPools\$Domain") {
               Stop-WebAppPool -Name $Domain -ErrorAction SilentlyContinue
               Start-Sleep -Seconds 5
@@ -138,8 +151,8 @@ jobs:
             
             # Backup current deployment and preserve config files
             if (Test-Path $SitePath) {
-              $backupDir = Join-Path $BackupPath "$Domain-$timestamp"
-              Write-Host "Creating backup at: $backupDir"
+              $backupDir = Join-Path $BackupPath "backup-$timestamp"
+              Write-Log "Creating backup at: $backupDir"
               if (-not (Test-Path $BackupPath)) {
                 New-Item -ItemType Directory -Path $BackupPath -Force | Out-Null
               }
@@ -148,32 +161,32 @@ jobs:
               # Preserve existing appsettings.json
               $existingAppSettings = Join-Path $SitePath "appsettings.json"
               if (Test-Path $existingAppSettings) {
-                Write-Host "Preserving existing appsettings.json"
+                Write-Log "Preserving existing appsettings.json"
                 Copy-Item -Path $existingAppSettings -Destination "$env:TEMP\appsettings.json.preserve" -Force
               }
             }
             
             # Clear existing files (except protected directories)
-            Write-Host "Clearing existing deployment files..."
+            Write-Log "Clearing existing deployment files..."
             $excludeDirs = @("logs", "App_Data", "plesk-stat", "statistics", "error_docs", "_private")
             Get-ChildItem -Path $SitePath -ErrorAction SilentlyContinue | Where-Object { 
               $_.Name -notin $excludeDirs 
             } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
             
             # Extract new deployment
-            Write-Host "Extracting deployment from $ZipFile..."
+            Write-Log "Extracting deployment from $ZipFile..."
             Expand-Archive -Path $ZipFile -DestinationPath $SitePath -Force
             
             # Restore preserved appsettings.json
             $preservedAppSettings = "$env:TEMP\appsettings.json.preserve"
             if (Test-Path $preservedAppSettings) {
-              Write-Host "Restoring preserved appsettings.json"
+              Write-Log "Restoring preserved appsettings.json"
               Copy-Item -Path $preservedAppSettings -Destination (Join-Path $SitePath "appsettings.json") -Force
               Remove-Item -Path $preservedAppSettings -Force
             }
             
             # Set permissions
-            Write-Host "Setting permissions..."
+            Write-Log "Setting permissions..."
             $acl = Get-Acl $SitePath
             $iisRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
               "IIS_IUSRS", "Modify", "ContainerInherit,ObjectInherit", "None", "Allow"
@@ -182,35 +195,53 @@ jobs:
             Set-Acl $SitePath $acl
             
             # Run database migrations
-            Write-Host "Running database migrations..."
+            Write-Log "Running database migrations..."
             try {
               $dllPath = Join-Path $SitePath "360review.dll"
               if (Test-Path $dllPath) {
+                # Ensure dotnet-ef is installed
+                Write-Log "Installing/updating dotnet-ef tool..."
+                & dotnet tool install --global dotnet-ef 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Log "Tool already installed, updating..."
+                  & dotnet tool update --global dotnet-ef
+                }
+                
+                # Run migrations
                 $env:ASPNETCORE_ENVIRONMENT = "Production"
-                & dotnet ef database update --project $SitePath --no-build --verbose
-                Write-Host "Database migrations completed successfully"
+                Push-Location $SitePath
+                & dotnet ef database update --no-build --verbose
+                Pop-Location
+                
+                if ($LASTEXITCODE -eq 0) {
+                  Write-Log "Database migrations completed successfully"
+                } else {
+                  Write-Log "Warning: Database migration returned exit code $LASTEXITCODE"
+                }
               } else {
-                Write-Host "Warning: Could not find 360review.dll, skipping migrations"
+                Write-Log "Warning: Could not find 360review.dll, skipping migrations"
               }
             } catch {
-              Write-Host "Warning: Database migration failed: $_"
-              Write-Host "Deployment will continue, but manual migration may be required"
+              Write-Log "Warning: Database migration failed: $_"
+              Write-Log "Deployment will continue, but manual migration may be required"
             }
             
             # Start app pool
-            Write-Host "Starting application pool: $Domain"
+            Write-Log "Starting application pool: $Domain"
             if (Test-Path "IIS:\AppPools\$Domain") {
               Start-WebAppPool -Name $Domain -ErrorAction SilentlyContinue
               Start-Sleep -Seconds 5
             }
             
-            Write-Host "Deployment completed successfully"
+            Write-Log "Deployment completed successfully"
+            Write-Log "Backup location: $backupDir"
+            Write-Log "Deployment log: $deploymentLog"
           } catch {
-            Write-Host "Deployment failed: $_"
+            Write-Log "Deployment failed: $_"
             
             # Rollback if we have a backup
             if ($backupDir -and (Test-Path $backupDir)) {
-              Write-Host "Rolling back to backup..."
+              Write-Log "Rolling back to backup..."
               Remove-Item "$SitePath\*" -Recurse -Force -ErrorAction SilentlyContinue
               Copy-Item "$backupDir\*" -Destination $SitePath -Recurse -Force
             }
@@ -229,7 +260,7 @@ jobs:
           "${{ secrets.DB_NAME }}",
           "${{ secrets.DB_USER }}",
           "${{ secrets.DB_PASSWORD }}",
-          "C:\Plesk\Backups\${Domain}",
+          "C:\Plesk\Backups",
           "C:\Inetpub\vhosts"
         )
         
