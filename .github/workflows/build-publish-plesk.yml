@@ -136,7 +136,7 @@ jobs:
               Start-Sleep -Seconds 5
             }
             
-            # Backup current deployment
+            # Backup current deployment and preserve config files
             if (Test-Path $SitePath) {
               $backupDir = Join-Path $BackupPath "$Domain-$timestamp"
               Write-Host "Creating backup at: $backupDir"
@@ -144,6 +144,13 @@ jobs:
                 New-Item -ItemType Directory -Path $BackupPath -Force | Out-Null
               }
               Copy-Item -Path $SitePath -Destination $backupDir -Recurse -Force
+              
+              # Preserve existing appsettings.json
+              $existingAppSettings = Join-Path $SitePath "appsettings.json"
+              if (Test-Path $existingAppSettings) {
+                Write-Host "Preserving existing appsettings.json"
+                Copy-Item -Path $existingAppSettings -Destination "$env:TEMP\appsettings.json.preserve" -Force
+              }
             }
             
             # Clear existing files (except protected directories)
@@ -156,6 +163,14 @@ jobs:
             # Extract new deployment
             Write-Host "Extracting deployment from $ZipFile..."
             Expand-Archive -Path $ZipFile -DestinationPath $SitePath -Force
+            
+            # Restore preserved appsettings.json
+            $preservedAppSettings = "$env:TEMP\appsettings.json.preserve"
+            if (Test-Path $preservedAppSettings) {
+              Write-Host "Restoring preserved appsettings.json"
+              Copy-Item -Path $preservedAppSettings -Destination (Join-Path $SitePath "appsettings.json") -Force
+              Remove-Item -Path $preservedAppSettings -Force
+            }
             
             # Set permissions
             Write-Host "Setting permissions..."
