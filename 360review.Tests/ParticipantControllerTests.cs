@@ -6,6 +6,7 @@ using reviews.Models;
 using Microsoft.AspNetCore.Identity;
 using reviews.Services; // Add this or replace with the correct namespace for ReviewSessionService
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 public class ParticipantControllerTests
 {
