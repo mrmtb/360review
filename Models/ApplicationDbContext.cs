@@ -323,7 +323,7 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
             entity.ToTable("AspNetUsers");
         });
 
-        modelBuilder.Entity<DataProtectionKey>(b =>
+        modelBuilder.Entity<Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey>(b =>
             {
                 b.Property<int>("Id")
                     .HasColumnType("integer")
