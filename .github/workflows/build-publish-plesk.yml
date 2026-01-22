@@ -181,6 +181,22 @@ jobs:
             $acl.SetAccessRule($iisRule)
             Set-Acl $SitePath $acl
             
+            # Run database migrations
+            Write-Host "Running database migrations..."
+            try {
+              $dllPath = Join-Path $SitePath "360review.dll"
+              if (Test-Path $dllPath) {
+                $env:ASPNETCORE_ENVIRONMENT = "Production"
+                & dotnet ef database update --project $SitePath --no-build --verbose
+                Write-Host "Database migrations completed successfully"
+              } else {
+                Write-Host "Warning: Could not find 360review.dll, skipping migrations"
+              }
+            } catch {
+              Write-Host "Warning: Database migration failed: $_"
+              Write-Host "Deployment will continue, but manual migration may be required"
+            }
+            
             # Start app pool
             Write-Host "Starting application pool: $Domain"
             if (Test-Path "IIS:\AppPools\$Domain") {
