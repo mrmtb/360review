@@ -23,7 +23,7 @@ namespace reviews.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("DataProtectionKey", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -32,11 +32,9 @@ namespace reviews.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("FriendlyName")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Xml")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
