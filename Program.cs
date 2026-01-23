@@ -81,6 +81,36 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
+// Apply migrations BEFORE configuring DataProtection to ensure table exists
+var tempConnectionString = builder.Configuration.GetConnectionString("ApplicationDBConnection");
+var tempOptionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
+tempOptionsBuilder.UseNpgsql(tempConnectionString);
+
+using (var tempContext = new ApplicationDbContext(tempOptionsBuilder.Options, builder.Configuration))
+{
+    try
+    {
+        Console.WriteLine("Checking for pending database migrations...");
+        var pendingMigrations = tempContext.Database.GetPendingMigrations();
+        if (pendingMigrations.Any())
+        {
+            Console.WriteLine($"Applying {pendingMigrations.Count()} pending migrations: {string.Join(", ", pendingMigrations)}");
+            tempContext.Database.Migrate();
+            Console.WriteLine("Database migrations applied successfully");
+        }
+        else
+        {
+            Console.WriteLine("Database is up to date, no pending migrations");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error during migration: {ex.Message}");
+        Console.WriteLine("Application will continue but may have database issues");
+    }
+}
+
+// Now configure DataProtection with database storage (migrations are complete)
 builder.Services.AddDataProtection()
     .PersistKeysToDbContext<ApplicationDbContext>()
     .SetApplicationName("360ReviewApp");
@@ -88,34 +118,6 @@ builder.Services.AddDataProtection()
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 
 var app = builder.Build();
-
-// Apply database migrations on startup
-using (var scope = app.Services.CreateScope())
-{
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    try
-    {
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        logger.LogInformation("Checking for pending database migrations...");
-        
-        var pendingMigrations = dbContext.Database.GetPendingMigrations();
-        if (pendingMigrations.Any())
-        {
-            logger.LogInformation("Applying {Count} pending migrations...", pendingMigrations.Count());
-            dbContext.Database.Migrate();
-            logger.LogInformation("Database migrations applied successfully");
-        }
-        else
-        {
-            logger.LogInformation("Database is up to date, no pending migrations");
-        }
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "An error occurred while migrating the database");
-        // Don't throw - allow app to start even if migrations fail
-    }
-}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

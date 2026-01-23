@@ -62,6 +62,7 @@ artifacts/
 # ASP.NET Core
 appsettings.json
 appsettings.*.json
+App_Data/
 
 # IIS
 .vs/
