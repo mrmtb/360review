@@ -31,4 +31,13 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- Exclude unused assets from publish -->
+  <ItemGroup>
+    <Content Remove="wwwroot\lib\bootstrap\**\*.svg" />
+    <Content Remove="wwwroot\**\*.map" />
+    <Content Remove="wwwroot\lib\**\*.md" />
+    <Content Remove="wwwroot\lib\**\LICENSE*" />
+    <Content Remove="wwwroot\lib\**\README*" />
+  </ItemGroup>
+
 </Project>

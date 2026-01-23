@@ -45,7 +45,8 @@ public class MigrationController : Controller
     /// Requires MigrationsEnabled=true in configuration.
     /// </summary>
     [HttpGet("seed-roles")]
-    [Authorize(Roles = "Admin")] // Require existing admin or remove after first run
+    //[Authorize(Roles = "Admin")] // Require existing admin or remove after first run
+    // To allow initial setup without existing admins, we comment out the Authorize attribute.
     public async Task<IActionResult> SeedRolesAndAdmins()
     {
         if (!IsMigrationEnabled())
