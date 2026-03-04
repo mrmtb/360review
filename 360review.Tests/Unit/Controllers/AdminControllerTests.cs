@@ -1,6 +1,7 @@
 using Moq;
 using Xunit;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using reviews.Controllers.Admin;
 using reviews.Models;
@@ -26,6 +27,8 @@ public class AdminControllerTests
     private readonly Mock<IClientService> _mockClientService;
     private readonly Mock<IEmailTemplateService> _mockEmailTemplateService;
     private readonly Mock<IReviewSessionService> _mockReviewSessionService;
+    private readonly Mock<ISessionInitializationService> _mockSessionInitService;
+    private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
     private readonly Mock<ILogger<AdminController>> _mockLogger;
     private readonly AdminController _controller;
 
@@ -37,6 +40,8 @@ public class AdminControllerTests
         _mockClientService = new Mock<IClientService>();
         _mockEmailTemplateService = new Mock<IEmailTemplateService>();
         _mockReviewSessionService = new Mock<IReviewSessionService>();
+        _mockSessionInitService = new Mock<ISessionInitializationService>();
+        _mockUserManager = MockHelpers.MockUserManager<ApplicationUser>();
         _mockLogger = new Mock<ILogger<AdminController>>();
 
         _controller = new AdminController(
@@ -46,6 +51,8 @@ public class AdminControllerTests
             _mockClientService.Object,
             _mockEmailTemplateService.Object,
             _mockReviewSessionService.Object,
+            _mockSessionInitService.Object,
+            _mockUserManager.Object,
             _mockLogger.Object
         );
     }

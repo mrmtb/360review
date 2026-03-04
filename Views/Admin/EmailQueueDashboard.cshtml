@@ -2,85 +2,105 @@
 
 @{
     ViewBag.Title = "Email Queue Dashboard";
+    var emails = Model?.ToList() ?? new List<reviews.Models.EmailQueue>();
+    var hasEmails = emails.Any();
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://cdn.datatables.net/2.0.0/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="/vendor/datatables/dataTables.bootstrap5.min.css">
 }
 
 <h4>Email Queue Dashboard</h4>
 
-<table class="table table-hover table-sm align-middle" id="emailQueueTable">
-    <thead>
-        <tr>
-            <th>Recipient</th>
-            <th>Subject</th>
-            <th>Status</th>
-            <th>Testing</th>
-            <th>Queued At</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var email in Model)
-        {
-            <tr data-email-id="@email.EmailQueueId">
-                <td>@email.EmailTo</td>
-                <td>@email.EmailSubject</td>
-                <td>@(email.EmailSent ? "Sent" : "Pending")</td>
-                <td>@(email.EmailTest ? "Yes" : "")</td>
-                <td>@email.EmailQueuedDateTime.ToString("g")</td>
-                <td>
-                    <button class="btn btn-sm btn-primary preview-email" data-email-id="@email.EmailQueueId" itemid="@email.EmailQueueId">Preview</button>
-                    @if (!email.EmailSent)
-                    {
-                        <a href="@Url.Action("RetryEmail", new { id = email.EmailQueueId })" class="btn btn-sm btn-warning">Retry</a>
-                        <a href="@Url.Action("CancelEmail", new { id = email.EmailQueueId })" class="btn btn-sm btn-danger">Cancel</a>
-                    }
-                </td>
+@if (!hasEmails)
+{
+    @await Html.PartialAsync("_EmptyState", new ViewDataDictionary(ViewData)
+    {
+        ["IconClass"] = "bi bi-envelope-open",
+        ["Title"] = "Email queue is empty",
+        ["Message"] = "No queued or pending emails right now."
+    })
+}
+else
+{
+    <table class="table table-hover table-sm align-middle mobile-stack" id="emailQueueTable">
+        <thead>
+            <tr>
+                <th>Recipient</th>
+                <th>Subject</th>
+                <th>Status</th>
+                <th>Testing</th>
+                <th>Queued At</th>
+                <th>Actions</th>
             </tr>
-        }
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+            @foreach (var email in emails)
+            {
+                <tr data-email-id="@email.EmailQueueId">
+                    <td data-label="Recipient">@email.EmailTo</td>
+                    <td data-label="Subject">@email.EmailSubject</td>
+                    <td data-label="Status">@(email.EmailSent ? "Sent" : "Pending")</td>
+                    <td data-label="Testing">@(email.EmailTest ? "Yes" : "")</td>
+                    <td data-label="Queued At">@email.EmailQueuedDateTime.ToString("g")</td>
+                    <td data-label="Actions">
+                        <button class="btn btn-sm btn-primary"
+                                hx-get="@Url.Action("PreviewEmail", new { id = email.EmailQueueId })"
+                                hx-target="#emailPreviewModalBody"
+                                hx-swap="innerHTML"
+                                hx-indicator="#emailPreviewLoading"
+                                hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('emailPreviewModal')).show()">
+                            <span class="spinner-border spinner-border-sm htmx-indicator me-1" role="status" aria-hidden="true"></span>
+                            Preview
+                        </button>
+                        @if (!email.EmailSent)
+                        {
+                            <button type="button"
+                                    class="btn btn-sm btn-warning js-email-action"
+                                    data-action="retry"
+                                    hx-post="@Url.Action("RetryEmailAjax", new { id = email.EmailQueueId })"
+                                    hx-swap="none">
+                                Retry
+                            </button>
+                            <button type="button"
+                                    class="btn btn-sm btn-danger js-email-action"
+                                    data-action="cancel"
+                                    hx-post="@Url.Action("CancelEmailAjax", new { id = email.EmailQueueId })"
+                                    hx-swap="none">
+                                Cancel
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 
-<nav>
-    <ul class="pagination justify-content-center pagination-sm" id="pagination"></ul>
-</nav>
+    <nav>
+        <ul class="pagination justify-content-center pagination-sm" id="pagination"></ul>
+    </nav>
+}
 
 @section Scripts {
-    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.8.4/moment.min.js"></script>
-    <script src="https://cdn.datatables.net/plug-ins/2.3.2/sorting/datetime-moment.js"></script>
-
-    <script>
-        $(document).ready(function () {
-            $('.preview-email').on('click', function () {
-                var emailId = $(this).data('email-id');
-
-                // Load the preview content via AJAX
-                $.get('@Url.Action("PreviewEmail")', { id: emailId }, function (data) {
-                    $('#emailPreviewModal .modal-body').html(data);
-                    $('#emailPreviewModal').modal('show');
-                });
-            });
-
-            $.fn.dataTable.moment('M/D/YYYY LT', 'en');
-
-            $('#emailQueueTable').DataTable({
-                responsive: true,
-                pageLength: 25,
-                order: [[4, 'desc']],
-                columnDefs: [
-                    { targets: -1, orderable: false }
-                ],
-                language: {
-                    search: "_INPUT_",
-                    searchPlaceholder: "Search emails..."
-                }
-            });
-        });
-    </script>
+    @if (hasEmails)
+    {
+        <script src="/vendor/datatables/dataTables.min.js"></script>
+        <script src="/vendor/datatables/dataTables.bootstrap5.min.js"></script>
+        <script src="/vendor/moment/moment.min.js"></script>
+        <script src="/vendor/datatables/datetime-moment.js"></script>
+        @await Html.PartialAsync("_DataTableInit", new ViewDataDictionary(ViewData)
+        {
+            ["Selector"] = "#emailQueueTable",
+            ["PageLength"] = "25",
+            ["SaveState"] = "false",
+            ["OrderJs"] = "[[4, 'desc']]",
+            ["ColumnDefsJs"] = "[{ targets: -1, orderable: false }]",
+            ["SearchPlaceholder"] = "Search emails...",
+            ["MomentFormat"] = "M/D/YYYY LT",
+            ["MomentLocale"] = "en"
+        })
+    }
+    <script src="/js/pages/admin-email-queue.js" asp-append-version="true"></script>
 }
 
 <!-- Modal Structure -->
@@ -92,7 +112,10 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <div id="emailPreviewLoading" class="small text-muted mb-2 htmx-indicator">Loading email preview...</div>
+                <div id="emailPreviewModalBody" data-autofocus-scope>
                 <!-- Content will be loaded dynamically -->
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

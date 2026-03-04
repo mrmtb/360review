@@ -32,7 +32,11 @@
                     }
                 </td>
                 <td>
-                    <button class="btn btn-sm btn-primary load-details" data-url="GetEmailTemplateDetails" data-id="@item.EmailTemplateId">
+                    <button
+                        class="btn btn-sm btn-primary"
+                        hx-get="@Url.Action("GetEmailTemplateDetails", "Admin", new { id = item.EmailTemplateId })"
+                        hx-target="#detailsContainer"
+                        hx-swap="innerHTML">
                         <i class="bi bi-pencil-square"></i> Details
                     </button>
                 </td>

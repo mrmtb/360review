@@ -1,0 +1,32 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "ApplicationDbContextConnection": "Server=localhost;Port=5432;Database=reviews_mvc;Username=reviews_user;Password=YOUR_PRODUCTION_PASSWORD",
+    "ApplicationDBConnection": "Server=localhost;Port=5432;Database=reviews_mvc;Username=reviews_user;Password=YOUR_PRODUCTION_PASSWORD"
+  },
+  "EmailSettings": {
+    "IsDevelopment": false,
+    "SmtpServer": "smtp.yourdomain.com",
+    "SmtpPort": 587,
+    "SmtpUser": "noreply@yourdomain.com",
+    "SmtpPass": "YOUR_EMAIL_PASSWORD"
+  },
+  "Endatix": {
+    "ApiBaseUrl": "http://localhost:5001",
+    "ApiKey": "",
+    "_comment": "Endatix runs on same Windows server, port 5001. For HTTPS: https://localhost:5001"
+  },
+  "Survey": {
+    "DefaultTemplateId": "REPLACE_WITH_ACTUAL_TEMPLATE_ID_FROM_ENDATIX",
+    "TemplatePath": "survey3.json"
+  },
+  "EnableLogging": true,
+  "Migration": {
+    "Enabled": false
+  }
+}

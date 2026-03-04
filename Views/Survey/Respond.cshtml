@@ -1,0 +1,480 @@
+@{
+    ViewData["Title"] = "Complete Survey";
+    var password = ViewBag.Password as string;
+    var rateeDisplayName = ViewBag.RateeDisplayName as string;
+    var roleName = ViewBag.RoleName as string;
+    var isComplete = (bool)ViewBag.IsComplete;
+    var completedAt = ViewBag.CompletedAt as DateTime?;
+    var evaluationActive = ViewBag.EvaluationActive as bool? ?? true;
+    var evaluationDueDate = ViewBag.EvaluationDueDate as DateTime?;
+}
+
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="/css/ui-modern.css" asp-append-version="true" />
+    
+    <!-- SurveyJS Core v1.9.x (stable API) -->
+    <link href="/vendor/surveyjs/defaultV2.min.css" rel="stylesheet" />
+    <script src="/vendor/surveyjs/knockout-latest.js"></script>
+    <script src="/vendor/surveyjs/survey.ko.min.js"></script>
+    
+    <style>
+        body {
+            font-family: "Manrope", "Segoe UI", sans-serif;
+            margin: 0;
+            padding: clamp(12px, 2.5vw, 28px);
+            color: var(--ui-text);
+            background:
+                radial-gradient(circle at 10% 12%, color-mix(in srgb, var(--ui-accent) 16%, transparent), transparent 46%),
+                radial-gradient(circle at 84% 0%, color-mix(in srgb, var(--ui-success) 10%, transparent), transparent 38%),
+                var(--ui-bg);
+        }
+        .survey-container {
+            width: min(1400px, 100%);
+            max-width: min(1400px, 100%);
+            margin: 0 auto;
+            background: color-mix(in srgb, var(--ui-surface) 92%, transparent);
+            padding: clamp(16px, 3vw, 34px);
+            border-radius: 22px;
+            border: 1px solid var(--ui-border);
+            box-shadow: var(--ui-shadow);
+            backdrop-filter: blur(4px);
+        }
+        .survey-header {
+            margin-bottom: 24px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--ui-border);
+        }
+        .survey-header h1 {
+            margin: 0 0 10px 0;
+            color: var(--ui-text);
+            font-size: clamp(1.4rem, 2.2vw, 2rem);
+            letter-spacing: 0.01em;
+        }
+        .survey-header .subtitle {
+            color: var(--ui-text-muted);
+            font-size: 0.98rem;
+        }
+        .survey-header .subtitle p {
+            margin-bottom: 0.4rem;
+        }
+        .survey-status {
+            border-left: 4px solid;
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: color-mix(in srgb, var(--ui-surface-muted) 84%, transparent);
+            margin-top: 8px;
+        }
+        .survey-status.success {
+            border-color: var(--ui-success);
+        }
+        .survey-status.warning {
+            border-color: #e0a318;
+        }
+        .survey-status.danger {
+            border-color: var(--ui-danger);
+        }
+        .autosave-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: var(--ui-success);
+            color: white;
+            border-radius: 10px;
+            display: none;
+            z-index: 1000;
+            font-size: 14px;
+            opacity: 0.9;
+            transition: opacity 0.3s ease, background-color 0.3s ease;
+            box-shadow: var(--ui-shadow);
+        }
+        .autosave-indicator.saving {
+            background: color-mix(in srgb, var(--ui-accent) 70%, #4b5f77);
+            display: block;
+            opacity: 0.85;
+        }
+        .autosave-indicator.saved {
+            background: var(--ui-success);
+            display: block;
+            opacity: 0.9;
+        }
+        .error-message {
+            border: 1px solid color-mix(in srgb, var(--ui-danger) 46%, transparent);
+            background: color-mix(in srgb, var(--ui-danger) 12%, var(--ui-surface));
+            color: var(--ui-text);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .success-message {
+            border: 1px solid color-mix(in srgb, var(--ui-success) 46%, transparent);
+            background: color-mix(in srgb, var(--ui-success) 12%, var(--ui-surface));
+            color: var(--ui-text);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        #surveyElement {
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        /* Ensure SurveyJS content can use full available width inside the card */
+        #surveyElement .sd-root-modern,
+        #surveyElement .sd-container-modern,
+        #surveyElement .sd-body,
+        #surveyElement .sd-page,
+        #surveyElement .sd-question {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+
+        /* Keep horizontal scrolling only on matrix/scale tables when truly needed */
+        #surveyElement .sd-question--table,
+        #surveyElement .sd-table-wrapper,
+        #surveyElement .sv_q_matrix,
+        #surveyElement .sv-matrix,
+        #surveyElement .sv_matrix {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #surveyElement .sd-table,
+        #surveyElement .sv_q_matrix table,
+        #surveyElement .sv-matrix table,
+        #surveyElement .sv_matrix table {
+            width: 100%;
+            table-layout: auto;
+            min-width: 760px;
+        }
+
+        #surveyElement .sd-table th,
+        #surveyElement .sd-table td,
+        #surveyElement .sv_q_matrix th,
+        #surveyElement .sv_q_matrix td,
+        #surveyElement .sv-matrix th,
+        #surveyElement .sv-matrix td,
+        #surveyElement .sv_matrix th,
+        #surveyElement .sv_matrix td {
+            white-space: normal;
+            word-break: normal;
+            padding: 8px 6px;
+            font-size: 13px;
+        }
+
+        /* Keep scale/rating columns usable instead of collapsing to tiny widths */
+        #surveyElement .sd-table thead th:not(:first-child),
+        #surveyElement .sd-table tbody td,
+        #surveyElement .sv_q_matrix thead th:not(:first-child),
+        #surveyElement .sv_q_matrix tbody td,
+        #surveyElement .sv-matrix thead th:not(:first-child),
+        #surveyElement .sv-matrix tbody td,
+        #surveyElement .sv_matrix thead th:not(:first-child),
+        #surveyElement .sv_matrix tbody td {
+            min-width: 68px;
+        }
+
+        #surveyElement .sd-table th,
+        #surveyElement .sv_q_matrix thead th,
+        #surveyElement .sv-matrix thead th,
+        #surveyElement .sv_matrix thead th {
+            text-align: center;
+            vertical-align: middle;
+            line-height: 1.25;
+        }
+
+        #surveyElement .sd-table__row-text,
+        #surveyElement .sd-table tbody th,
+        #surveyElement .sv_q_matrix tbody th,
+        #surveyElement .sv-matrix tbody th,
+        #surveyElement .sv_matrix tbody th {
+            text-align: left;
+            min-width: 210px;
+        }
+
+        @@media (max-width: 768px) {
+            .survey-container {
+                padding: 15px;
+            }
+
+            #surveyElement .sd-table th,
+            #surveyElement .sd-table td,
+            #surveyElement .sv_q_matrix th,
+            #surveyElement .sv_q_matrix td,
+            #surveyElement .sv-matrix th,
+            #surveyElement .sv-matrix td,
+            #surveyElement .sv_matrix th,
+            #surveyElement .sv_matrix td {
+                font-size: 11px;
+                padding: 6px 4px;
+            }
+
+            #surveyElement .sd-table,
+            #surveyElement .sv_q_matrix table,
+            #surveyElement .sv-matrix table,
+            #surveyElement .sv_matrix table {
+                min-width: 620px;
+            }
+
+            #surveyElement .sd-table__row-text,
+            #surveyElement .sd-table tbody th,
+            #surveyElement .sv_q_matrix tbody th,
+            #surveyElement .sv-matrix tbody th,
+            #surveyElement .sv_matrix tbody th {
+                min-width: 160px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="survey-container">
+        <div class="survey-header">
+            <h1>360-Degree Feedback Survey</h1>
+            <div class="subtitle">
+                @if (!string.IsNullOrEmpty(rateeDisplayName))
+                {
+                    <p><strong>Evaluating:</strong> @rateeDisplayName</p>
+                }
+                @if (!string.IsNullOrEmpty(roleName))
+                {
+                    <p><strong>Your Role:</strong> @roleName</p>
+                }
+                @if (isComplete && completedAt.HasValue)
+                {
+                    <div class="survey-status success">
+                        <p><strong>This survey was completed on @completedAt.Value.ToString("MMMM d, yyyy").</strong></p>
+                        <p>Thank you for your participation. You can review your responses below.</p>
+                    </div>
+                }
+                else if (isComplete)
+                {
+                    <div class="survey-status success">
+                        <p><strong>This survey has been completed.</strong></p>
+                        <p>Thank you for your participation.</p>
+                    </div>
+                }
+                else if (!evaluationActive)
+                {
+                    <div class="survey-status danger">
+                        <p><strong>This evaluation is no longer active.</strong></p>
+                        <p>This evaluation has been closed and can no longer accept responses.</p>
+                    </div>
+                }
+                else if (evaluationDueDate.HasValue && evaluationDueDate.Value < DateTime.UtcNow)
+                {
+                    <div class="survey-status danger">
+                        <p><strong>The evaluation period has ended.</strong></p>
+                        <p>The deadline was @evaluationDueDate.Value.ToString("MMMM d, yyyy"). This survey can no longer be completed.</p>
+                    </div>
+                }
+                else if (evaluationDueDate.HasValue)
+                {
+                    <div class="survey-status warning">
+                        <p><strong>Due Date:</strong> @evaluationDueDate.Value.ToString("MMMM d, yyyy")</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div id="error-container"></div>
+        <div id="surveyElement"></div>
+    </div>
+
+    <div class="autosave-indicator" id="autosave-indicator">
+        <span id="autosave-text">Saved</span>
+    </div>
+
+    <script>
+        (function() {
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme === 'light' || storedTheme === 'dark') {
+                document.documentElement.setAttribute('data-bs-theme', storedTheme);
+            }
+
+            const password = '@password';
+            const apiBaseUrl = `/api/survey/${password}`;
+            let survey = null;
+            let autosaveTimeout = null;
+            let isSubmitting = false;
+
+            // Fetch runtime data and initialize survey
+            async function initializeSurvey() {
+                try {
+                    const response = await fetch(`${apiBaseUrl}/runtime`);
+                    if (!response.ok) {
+                        throw new Error('Failed to load survey');
+                    }
+
+                    const data = await response.json();
+                    
+                    // Parse survey definition
+                    const surveyJson = typeof data.surveyDefinition === 'string' 
+                        ? JSON.parse(data.surveyDefinition) 
+                        : data.surveyDefinition;
+
+                    // Create survey model
+                    survey = new Survey.Model(surveyJson);
+
+                    // Set mode
+                    if (data.isReadOnly || data.isSubmitted) {
+                        survey.mode = 'display';
+                    }
+
+                    // Load existing data if any
+                    if (data.existingData) {
+                        const existingData = typeof data.existingData === 'string'
+                            ? JSON.parse(data.existingData)
+                            : data.existingData;
+                        survey.data = existingData;
+                    }
+
+                    // Configure survey behavior
+                    survey.showProgressBar = 'top';
+                    survey.showQuestionNumbers = 'off';
+                    survey.completeText = data.isReadOnly ? 'Close' : 'Submit Survey';
+
+                    // Enable autosave for editable surveys
+                    if (!data.isReadOnly) {
+                        // Autosave on value change (debounced)
+                        survey.onValueChanged.add(function() {
+                            scheduleAutosave();
+                        });
+
+                        // Save on page change
+                        survey.onCurrentPageChanged.add(function() {
+                            saveDraft(true);
+                        });
+
+                        // Handle submission
+                        survey.onComplete.add(async function(sender) {
+                            await submitSurvey(sender.data);
+                        });
+                    }
+
+                    // Render survey
+                    const surveyElement = document.getElementById('surveyElement');
+                    survey.render(surveyElement);
+
+                } catch (error) {
+                    console.error('Error initializing survey:', error);
+                    showError('Failed to load survey. Please try refreshing the page.');
+                }
+            }
+
+            // Schedule autosave (debounced)
+            function scheduleAutosave() {
+                if (autosaveTimeout) {
+                    clearTimeout(autosaveTimeout);
+                }
+                
+                showAutosaveIndicator('saving');
+                
+                autosaveTimeout = setTimeout(() => {
+                    saveDraft();
+                }, 2000); // 2 second debounce
+            }
+
+            // Save draft
+            async function saveDraft(immediate = false) {
+                if (isSubmitting || !survey) return;
+
+                try {
+                    if (!immediate) {
+                        showAutosaveIndicator('saving');
+                    }
+
+                    const response = await fetch(`${apiBaseUrl}/draft`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            draftJson: JSON.stringify(survey.data)
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        console.error('Draft save failed:', error);
+                        return;
+                    }
+
+                    if (!immediate) {
+                        showAutosaveIndicator('saved');
+                    }
+                } catch (error) {
+                    console.error('Error saving draft:', error);
+                }
+            }
+
+            // Submit survey
+            async function submitSurvey(data) {
+                if (isSubmitting) return;
+                isSubmitting = true;
+
+                try {
+                    const response = await fetch(`${apiBaseUrl}/submit`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            finalJson: JSON.stringify(data)
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Submission failed');
+                    }
+
+                    // Show success message and reload to show read-only view
+                    showSuccess('Thank you! Your survey has been submitted successfully.');
+                    window.location.reload();
+                } catch (error) {
+                    console.error('Error submitting survey:', error);
+                    showError('Failed to submit survey: ' + error.message);
+                    isSubmitting = false;
+                }
+            }
+
+            // Show autosave indicator
+            function showAutosaveIndicator(state) {
+                const indicator = document.getElementById('autosave-indicator');
+                const text = document.getElementById('autosave-text');
+                
+                indicator.className = 'autosave-indicator ' + state;
+                
+                if (state === 'saving') {
+                    text.textContent = 'Saving...';
+                } else if (state === 'saved') {
+                    text.textContent = 'Saved';
+                    setTimeout(() => {
+                        indicator.classList.remove('saved');
+                    }, 2000);
+                }
+            }
+
+            // Show error message
+            function showError(message) {
+                const container = document.getElementById('error-container');
+                container.innerHTML = `<div class="error-message">${message}</div>`;
+            }
+
+            // Show success message
+            function showSuccess(message) {
+                const container = document.getElementById('error-container');
+                container.innerHTML = `<div class="success-message">${message}</div>`;
+            }
+
+            // Initialize on page load
+            initializeSurvey();
+        })();
+    </script>
+</body>
+</html>

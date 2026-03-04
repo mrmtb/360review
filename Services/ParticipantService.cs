@@ -142,14 +142,43 @@ public class ParticipantService : IParticipantService
                 .FirstOrDefaultAsync();
 
             var selfRoleId = await _db.ParticipantRoles
-                .Where(r => r.ParticipantRoleName == StatusNames.Self)
+                .Where(r => r.ParticipantRoleName == ParticipantRoleNames.Self)
                 .Select(r => r.ParticipantRoleId)
                 .FirstOrDefaultAsync();
 
             var participantStatusId = await _db.EvaluationParticipantStatuses
-                .Where(e => e.EvaluationParticipantStatusName == StatusNames.Draft)
+                .Where(e => e.EvaluationParticipantStatusName == EvaluationParticipantStatusNames.InvitationNotSent)
                 .Select(e => e.EvaluationParticipantStatusId)
                 .FirstOrDefaultAsync();
+
+            if (draftStatusId == 0)
+            {
+                _logger.LogError("Unable to resolve EvaluationRatee draft status id.");
+                return false;
+            }
+
+            if (selfRoleId == 0)
+            {
+                _logger.LogError("Unable to resolve Self participant role id.");
+                return false;
+            }
+
+            // Fallback to known seeded id if lookup by name returns no row.
+            if (participantStatusId == 0)
+            {
+                participantStatusId = EvaluationParticipantStatusIds.InvitationNotSent;
+            }
+
+            var participantStatusExists = await _db.EvaluationParticipantStatuses
+                .AnyAsync(s => s.EvaluationParticipantStatusId == participantStatusId);
+
+            if (!participantStatusExists)
+            {
+                _logger.LogError(
+                    "Unable to resolve valid EvaluationParticipant status id. Candidate id: {StatusId}",
+                    participantStatusId);
+                return false;
+            }
 
             // Create EvaluationRatee
             var evaluationRatee = new EvaluationRatee
@@ -348,7 +377,7 @@ public class ParticipantService : IParticipantService
                 ParticipantId = newRater.ParticipantId,
                 ParticipantRoleId = role.ParticipantRoleId,
                 EvaluationParticipantStatusId = EvaluationParticipantStatusIds.InvitationNotSent,
-                EvaluationParticipantSurveyPassword = "",
+                EvaluationParticipantSurveyPassword = RandomValueGenerator.GenerateRandomValue(),
                 EvaluationParticipantDateAdded = DateTime.UtcNow
             };
 
@@ -391,7 +420,7 @@ public class ParticipantService : IParticipantService
                 ParticipantId = participantId,
                 ParticipantRoleId = role.ParticipantRoleId,
                 EvaluationParticipantStatusId = EvaluationParticipantStatusIds.InvitationNotSent,
-                EvaluationParticipantSurveyPassword = "",
+                EvaluationParticipantSurveyPassword = RandomValueGenerator.GenerateRandomValue(),
                 EvaluationParticipantDateAdded = DateTime.UtcNow
             };
 

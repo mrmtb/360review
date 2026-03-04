@@ -22,6 +22,8 @@ public class AdminController : Controller
     private readonly IClientService _clientService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly IReviewSessionService _sessionService;
+    private readonly ISessionInitializationService _sessionInitService;
+    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<AdminController> _logger;
 
     private Guid LocalClientId => GetSessionData()?.ClientId ?? Guid.Empty;
@@ -35,6 +37,8 @@ public class AdminController : Controller
         IClientService clientService,
         IEmailTemplateService emailTemplateService,
         IReviewSessionService sessionService,
+        ISessionInitializationService sessionInitService,
+        UserManager<ApplicationUser> userManager,
         ILogger<AdminController> logger)
     {
         _participantService = participantService;
@@ -43,6 +47,8 @@ public class AdminController : Controller
         _clientService = clientService;
         _emailTemplateService = emailTemplateService;
         _sessionService = sessionService;
+        _sessionInitService = sessionInitService;
+        _userManager = userManager;
         _logger = logger;
     }
 
@@ -59,11 +65,66 @@ public class AdminController : Controller
         }
     }
 
+    private async Task<bool> EnsureSessionInitializedAsync()
+    {
+        try
+        {
+            var sessionData = GetSessionData();
+            
+            // Session already initialized
+            if (sessionData != null && sessionData.ClientId != Guid.Empty)
+            {
+                return true;
+            }
+
+            // Get current user
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || string.IsNullOrEmpty(user.Email))
+            {
+                _logger.LogWarning("Unable to initialize session - user not found");
+                return false;
+            }
+
+            // Initialize session for Admin/Client role
+            var email = user.Email;
+            var role = sessionData?.Role ?? LocalRole;
+            
+            if (string.IsNullOrEmpty(role))
+            {
+                role = RoleNames.Admin; // Default to Admin for this controller
+            }
+
+            var newSessionData = await _sessionInitService.InitializeClientSessionAsync(email, role);
+            if (newSessionData == null)
+            {
+                _logger.LogError("Failed to initialize session for {Email}", email);
+                return false;
+            }
+
+            _sessionService.SetSessionData(newSessionData);
+            _logger.LogInformation("Session initialized for {Email} with ClientId {ClientId}", email, newSessionData.ClientId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error ensuring session initialized");
+            return false;
+        }
+    }
+
     [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> ViewParticipants()
     {
         var participants = await _participantService.GetParticipantsByClientAsync(LocalClientId);
         return View(participants);
+    }
+
+    // Backward-compatible route for legacy links/bookmarks.
+    [HttpGet("/admin/addparticipant")]
+    [Authorize(Roles = RoleNames.Admin)]
+    public IActionResult AddParticipant()
+    {
+        return RedirectToAction(nameof(ViewParticipants));
     }
 
     [Authorize(Roles = RoleNames.Admin)]
@@ -85,6 +146,26 @@ public class AdminController : Controller
     {
         var participantIds = new List<Guid> { participantId };
         return RedirectToAction("ProcessReminders", new { participantIds });
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemindRateeAjax(Guid participantId)
+    {
+        if (participantId == Guid.Empty)
+        {
+            return BadRequest(ErrorMessages.InvalidParticipantId);
+        }
+
+        var participantIds = new List<Guid> { participantId };
+        var success = await _invitationService.ProcessRemindersAsync(participantIds, LocalClientId, LocalEmail);
+        if (!success)
+        {
+            return BadRequest("Failed to process reminder.");
+        }
+
+        return Ok(new { success = true, message = "Reminder sent." });
     }
 
     [Authorize(Roles = RoleNames.Admin)]
@@ -186,7 +267,7 @@ public class AdminController : Controller
 
     [HttpPost]
     [Authorize(Roles = RoleNames.Admin)]
-    public async Task<IActionResult> SaveParticipant(Participant participant, string returnUrl)
+    public async Task<IActionResult> SaveParticipant(Models.Participant participant, string returnUrl)
     {
         if (!ModelState.IsValid)
         {
@@ -206,10 +287,16 @@ public class AdminController : Controller
     [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> AddParticipantToEvaluation(Guid participantId, string returnUrl)
     {
+        if (!await EnsureSessionInitializedAsync())
+        {
+            _logger.LogWarning("Session initialization failed in AddParticipantToEvaluation");
+            return RedirectToAction(nameof(ViewParticipants));
+        }
+
         if (participantId == Guid.Empty)
         {
             ModelState.AddModelError("", ErrorMessages.InvalidParticipantId);
-            return RedirectToAction(returnUrl);
+            return RedirectToAction(nameof(ViewParticipants));
         }
 
         var success = await _participantService.AddParticipantToEvaluationAsync(participantId, LocalClientId);
@@ -217,10 +304,29 @@ public class AdminController : Controller
         if (!success)
         {
             ModelState.AddModelError("", "An error occurred while adding the participant to the evaluation.");
-            return RedirectToAction(ActionNames.Error);
+            return RedirectToAction(nameof(ViewParticipants));
         }
 
-        return returnUrl != null ? RedirectToAction(returnUrl) : RedirectToAction("ViewParticipants");
+        var activeEvaluationId = (await _evaluationService.GetEvaluationsByClientAsync(LocalClientId))
+            .Where(e => e.EvaluationActive)
+            .OrderByDescending(e => e.EvaluationOpenDate ?? DateTime.MinValue)
+            .Select(e => e.EvaluationId)
+            .FirstOrDefault();
+
+        if (activeEvaluationId != Guid.Empty)
+        {
+            return RedirectToAction(
+                "ViewRaters",
+                "Participant",
+                new { evaluationId = activeEvaluationId, participantID = participantId });
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.Action(returnUrl) != null)
+        {
+            return RedirectToAction(returnUrl);
+        }
+
+        return RedirectToAction(nameof(ViewParticipants));
     }
 
     [HttpGet]
@@ -238,8 +344,15 @@ public class AdminController : Controller
     }
 
     // GET: ManageIndex
-    public IActionResult ManageIndex(string selectedModel = "Evaluations")
+    public async Task<IActionResult> ManageIndex(string selectedModel = "Evaluations")
     {
+        // Ensure session is initialized
+        if (!await EnsureSessionInitializedAsync())
+        {
+            _logger.LogWarning("Session initialization failed in ManageIndex");
+            // Continue anyway - some operations may still work
+        }
+
         ViewData["SelectedModel"] = selectedModel;
         return View();
     }
@@ -390,6 +503,30 @@ public class AdminController : Controller
         return RedirectToAction("ProcessInvitations", new { participantIds, evaluationRateeId });
     }
 
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> InviteParticipantAjax(Guid evaluationRateeId, Guid participantId)
+    {
+        if (evaluationRateeId == Guid.Empty || participantId == Guid.Empty)
+        {
+            return BadRequest(ErrorMessages.InvalidParticipantId);
+        }
+
+        var participantTuples = new List<(Guid EvaluationRateeId, Guid ParticipantId)>
+        {
+            (evaluationRateeId, participantId)
+        };
+
+        var success = await _invitationService.ProcessInvitationsAsync(participantTuples, LocalClientId, LocalEmail);
+        if (!success)
+        {
+            return BadRequest(ErrorMessages.FailedToProcessInvitations);
+        }
+
+        return Ok(new { success = true, message = "Invitation sent." });
+    }
+
     [HttpGet]
     [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> ProcessInvitations(List<(Guid EvaluationRateeId, Guid ParticipantId)>? participantTuples)
@@ -438,6 +575,20 @@ public class AdminController : Controller
         return RedirectToAction(ActionNames.EmailQueueDashboard);
     }
 
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RetryEmailAjax(int id)
+    {
+        var success = await _emailTemplateService.RetryEmailAsync(id);
+        if (!success)
+        {
+            return BadRequest(ErrorMessages.EmailNotFoundOrSent);
+        }
+
+        return Ok(new { success = true, message = "Email retry queued." });
+    }
+
     [HttpGet]
     [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> CancelEmail(int id)
@@ -449,6 +600,20 @@ public class AdminController : Controller
         }
 
         return RedirectToAction(ActionNames.EmailQueueDashboard);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelEmailAjax(int id)
+    {
+        var success = await _emailTemplateService.CancelEmailAsync(id);
+        if (!success)
+        {
+            return BadRequest(ErrorMessages.EmailNotFoundOrSent);
+        }
+
+        return Ok(new { success = true, message = "Email cancelled." });
     }
 
     [HttpGet]

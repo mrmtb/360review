@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using reviews.Constants;
 using reviews.Models;
 using reviews.Services;
@@ -13,6 +14,8 @@ public class ParticipantController : Controller
     private readonly ISurveyUrlBuilder _surveyUrlBuilder;
     private readonly ISurveyCompletionService _surveyCompletionService;
     private readonly IReviewSessionService _sessionService;
+    private readonly ISessionInitializationService _sessionInitService;
+    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<ParticipantController> _logger;
 
     private Guid LocalClientId { get; set; } = Guid.Empty;
@@ -31,6 +34,8 @@ public class ParticipantController : Controller
         ISurveyUrlBuilder surveyUrlBuilder,
         ISurveyCompletionService surveyCompletionService,
         IReviewSessionService sessionService,
+        ISessionInitializationService sessionInitService,
+        UserManager<ApplicationUser> userManager,
         ILogger<ParticipantController> logger)
     {
         _participantService = participantService;
@@ -38,6 +43,8 @@ public class ParticipantController : Controller
         _surveyUrlBuilder = surveyUrlBuilder;
         _surveyCompletionService = surveyCompletionService;
         _sessionService = sessionService;
+        _sessionInitService = sessionInitService;
+        _userManager = userManager;
         _logger = logger;
 
         var sessionData = _sessionService.GetSessionData();
@@ -56,9 +63,68 @@ public class ParticipantController : Controller
         }
     }
 
+    private async Task<bool> EnsureSessionInitializedAsync()
+    {
+        try
+        {
+            var sessionData = _sessionService.GetSessionData();
+            
+            // Session already initialized
+            if (sessionData != null && sessionData.ClientId != Guid.Empty)
+            {
+                return true;
+            }
+
+            // Get current user
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || string.IsNullOrEmpty(user.Email))
+            {
+                _logger.LogWarning("Unable to initialize session - user not found");
+                return false;
+            }
+
+            // Initialize session based on role
+            var email = user.Email;
+            var role = sessionData?.Role ?? LocalRole;
+            
+            SessionData? newSessionData = null;
+            
+            if (role == RoleNames.Participant)
+            {
+                newSessionData = await _sessionInitService.InitializeParticipantSessionAsync(email);
+            }
+            else if (role == RoleNames.Admin || role == RoleNames.Client)
+            {
+                newSessionData = await _sessionInitService.InitializeClientSessionAsync(email, role);
+            }
+
+            if (newSessionData == null)
+            {
+                _logger.LogError("Failed to initialize session for {Email}", email);
+                return false;
+            }
+
+            _sessionService.SetSessionData(newSessionData);
+            _logger.LogInformation("Session initialized for {Email} with ClientId {ClientId}", email, newSessionData.ClientId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error ensuring session initialized");
+            return false;
+        }
+    }
+
     [Authorize(Roles = RoleNames.AdminOrParticipant)]
     public async Task<IActionResult> ParticipantIndex(Guid? EvaluationId, Guid? ParticipantId)
     {
+        // Ensure session is initialized
+        if (!await EnsureSessionInitializedAsync())
+        {
+            _logger.LogWarning("Session initialization failed in ParticipantIndex");
+            // Continue anyway - may still work for some operations
+        }
+
         try
         {
             Guid targetParticipantId = LocalRole == RoleNames.Admin && ParticipantId.HasValue 
@@ -157,6 +223,7 @@ public class ParticipantController : Controller
 
     [HttpPost]
     [Authorize(Roles = RoleNames.AdminOrParticipant)]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddNewRater(
         Guid evaluationRateeId, 
         string firstName, 
@@ -164,6 +231,10 @@ public class ParticipantController : Controller
         string email, 
         string rolename)
     {
+        _logger.LogInformation(
+            "AddNewRater called: EvaluationRateeId={EvaluationRateeId}, FirstName={FirstName}, LastName={LastName}, Email={Email}, Role={Role}",
+            evaluationRateeId, firstName, lastName, email, rolename);
+
         var success = await _participantService.AddNewRaterAsync(
             evaluationRateeId, 
             firstName, 
@@ -172,6 +243,22 @@ public class ParticipantController : Controller
             rolename, 
             LocalClientId);
 
+        _logger.LogInformation("AddNewRaterAsync result: {Success}", success);
+
+        // Check if this is an AJAX request
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+        {
+            if (success)
+            {
+                return Json(new { success = true, message = "Rater added successfully" });
+            }
+            else
+            {
+                return Json(new { success = false, message = ErrorMessages.FailedToAddNewRater });
+            }
+        }
+
+        // Non-AJAX request: use traditional redirect
         if (!success)
         {
             ModelState.AddModelError("", ErrorMessages.FailedToAddNewRater);
@@ -182,13 +269,34 @@ public class ParticipantController : Controller
 
     [HttpPost]
     [Authorize(Roles = RoleNames.AdminOrParticipant)]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddRater(Guid evaluationRateeId, Guid participantId, string rolename)
     {
+        _logger.LogInformation(
+            "AddRater called: EvaluationRateeId={EvaluationRateeId}, ParticipantId={ParticipantId}, Role={Role}",
+            evaluationRateeId, participantId, rolename);
+
         var success = await _participantService.AddExistingRaterAsync(
             evaluationRateeId, 
             participantId, 
             rolename);
 
+        _logger.LogInformation("AddExistingRaterAsync result: {Success}", success);
+
+        // Check if this is an AJAX request
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+        {
+            if (success)
+            {
+                return Json(new { success = true, message = "Rater added successfully" });
+            }
+            else
+            {
+                return Json(new { success = false, message = ErrorMessages.FailedToAddRater });
+            }
+        }
+
+        // Non-AJAX request: use traditional redirect
         if (!success)
         {
             ModelState.AddModelError("", ErrorMessages.FailedToAddRater);
@@ -274,6 +382,7 @@ public class ParticipantController : Controller
 
     [HttpPost]
     [Authorize]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteEvaluationParticipant(
         Guid evaluationRateeId, 
         Guid participantId, 
@@ -298,6 +407,7 @@ public class ParticipantController : Controller
 
     [HttpPost]
     [Authorize(Roles = RoleNames.AdminOrParticipant)]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ProcessInvitationsForParticipant(
         bool blnTest, 
         List<(Guid EvaluationRateeId, Guid ParticipantId)> participantTuples)

@@ -47,6 +47,8 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
 
     public DbSet<EvaluationParticipantStatus> EvaluationParticipantStatuses { get; set; }
 
+    public DbSet<EvaluationParticipantResponse> EvaluationParticipantResponses { get; set; }
+
     public DbSet<EvaluationRatee> EvaluationRatees { get; set; }
 
     public DbSet<EvaluationRateeStatus> EvaluationRateeStatuses { get; set; }
@@ -435,6 +437,38 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
             entity.ToTable("EvaluationParticipantStatus");
 
             entity.Property(e => e.EvaluationParticipantStatusId).ValueGeneratedNever();
+        });
+
+        modelBuilder.Entity<EvaluationParticipantResponse>(entity =>
+        {
+            entity.ToTable("EvaluationParticipantResponse");
+
+            entity.Property(e => e.EvaluationParticipantResponseId).HasDefaultValueSql("gen_random_uuid()");
+            
+            // Configure jsonb columns
+            entity.Property(e => e.DraftJson).HasColumnType("jsonb");
+            entity.Property(e => e.FinalJson).HasColumnType("jsonb");
+
+            // Unique index on survey password
+            entity.HasIndex(e => e.EvaluationParticipantSurveyPassword, "UK_EvaluationParticipantResponse_Password")
+                .IsUnique();
+
+            // Index on EvaluationRateeId for lookups
+            entity.HasIndex(e => e.EvaluationRateeId, "IX_EvaluationParticipantResponse_RateeId");
+
+            // Index on template key and version for reporting
+            entity.HasIndex(e => new { e.SurveyTemplateKey, e.SurveyTemplateVersion }, "IX_EvaluationParticipantResponse_Template");
+
+            // Foreign key relationships
+            entity.HasOne(e => e.EvaluationRatee)
+                .WithMany()
+                .HasForeignKey(e => e.EvaluationRateeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.RaterParticipant)
+                .WithMany()
+                .HasForeignKey(e => e.RaterParticipantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<EvaluationRatee>(entity =>
