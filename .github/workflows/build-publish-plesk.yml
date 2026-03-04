@@ -22,6 +22,10 @@ permissions:
   pull-requests: write
   statuses: write
 
+concurrency:
+  group: plesk-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     name: Build and Test
@@ -39,7 +43,9 @@ jobs:
     - name: Cache NuGet packages
       uses: actions/cache@v4
       with:
-        path: ~/.nuget/packages
+        path: |
+          ~/.nuget/packages
+          C:\Users\runneradmin\.nuget\packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
@@ -50,11 +56,10 @@ jobs:
         dotnet restore 360review.Tests/360review.Tests.csproj
       
     - name: Build
-      run: dotnet build 360review.csproj --configuration Release --no-restore
+      run: dotnet build 360review.sln --configuration Release --no-restore
       
     - name: Test
-      run: dotnet test 360review.Tests/360review.Tests.csproj --no-restore --verbosity normal --logger "trx;LogFileName=test-results.trx"
-      continue-on-error: true
+      run: dotnet test 360review.Tests/360review.Tests.csproj --configuration Release --no-restore --verbosity normal --logger "trx;LogFileName=test-results.trx"
       
     - name: Publish Test Results
       uses: dorny/test-reporter@v1

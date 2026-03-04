@@ -25,6 +25,11 @@ public partial class EvaluationParticipant
 
     public DateTime? EvaluationParticipantDateCompleted { get; set; }
 
+    // SurveyJS Integration Fields (optional, for quick lookups)
+    public string? SurveyTemplateKey { get; set; }
+    public int? SurveyTemplateVersion { get; set; }
+    public DateTime? SurveyLastSavedAt { get; set; }
+
     public EvaluationRatee EvaluationRatee { get; set; } = null!;
 
     public EvaluationParticipantStatus EvaluationParticipantStatus { get; set; } = null!;

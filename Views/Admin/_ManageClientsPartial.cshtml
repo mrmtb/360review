@@ -23,7 +23,11 @@
                 <td>@(item.ClientIsActive ? "Yes" : "No")</td>
                 <td>@item.ClientEmailDomain</td>
                 <td>
-                    <a class="btn btn-primary btn-sm load-details" data-url="GetClientDetails" data-id="@item.ClientId">
+                    <a
+                        class="btn btn-primary btn-sm"
+                        hx-get="@Url.Action("GetClientDetails", "Admin", new { id = item.ClientId })"
+                        hx-target="#detailsContainer"
+                        hx-swap="innerHTML">
                         <i class="bi bi-pencil-square"></i> Details
                     </a>
                     @{

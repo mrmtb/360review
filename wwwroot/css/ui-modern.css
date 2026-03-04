@@ -1,0 +1,384 @@
+:root {
+    --ui-bg: #f3f6fb;
+    --ui-surface: #ffffff;
+    --ui-surface-muted: #f7f9fc;
+    --ui-border: #d9e2ef;
+    --ui-text: #10233f;
+    --ui-text-muted: #53657f;
+    --ui-accent: #0b7285;
+    --ui-accent-strong: #095c6a;
+    --ui-success: #1f8a4c;
+    --ui-danger: #c0352b;
+    --ui-shadow: 0 12px 32px rgba(18, 42, 66, 0.08);
+    --ui-radius: 14px;
+    --app-topbar-offset: 76px;
+}
+
+html[data-bs-theme="dark"] {
+    --ui-bg: #0e1520;
+    --ui-surface: #142033;
+    --ui-surface-muted: #1a293f;
+    --ui-border: #2a3f5f;
+    --ui-text: #e7eef8;
+    --ui-text-muted: #a9bad1;
+    --ui-accent: #2aa7bd;
+    --ui-accent-strong: #49bfd4;
+    --ui-success: #4bc978;
+    --ui-danger: #eb675d;
+    --ui-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
+
+body.app-body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Manrope", "Segoe UI", sans-serif;
+    color: var(--ui-text);
+    background:
+        radial-gradient(circle at 8% 10%, rgba(11, 114, 133, 0.10), transparent 42%),
+        radial-gradient(circle at 86% 0%, rgba(31, 138, 76, 0.08), transparent 38%),
+        var(--ui-bg);
+}
+
+.app-shell {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+}
+
+.app-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid var(--ui-border);
+    background: linear-gradient(180deg, var(--ui-surface), var(--ui-surface-muted));
+}
+
+.app-sidebar-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+    padding: 1.2rem 1rem;
+}
+
+.app-nav .nav-link {
+    border-radius: 10px;
+    color: var(--ui-text);
+    font-weight: 600;
+}
+
+.app-nav .nav-link.text-white {
+    color: var(--ui-text) !important;
+}
+
+.app-nav .nav-link:hover,
+.app-nav .nav-link.active {
+    background: color-mix(in srgb, var(--ui-accent) 18%, transparent);
+    color: var(--ui-text);
+}
+
+.app-nav .badge {
+    background: color-mix(in srgb, var(--ui-accent) 20%, transparent);
+    color: var(--ui-text);
+}
+
+.app-footer {
+    margin-top: auto;
+    color: var(--ui-text-muted);
+}
+
+.app-footer a {
+    color: var(--ui-accent);
+    text-decoration: none;
+}
+
+.app-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-width: 0;
+}
+
+#appToastStack {
+    top: var(--app-topbar-offset) !important;
+    z-index: 1060 !important;
+}
+
+.app-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--ui-border);
+    background: color-mix(in srgb, var(--ui-surface) 90%, transparent);
+    backdrop-filter: blur(6px);
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+.app-topbar-title {
+    flex: 1;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.app-main {
+    padding: 1.25rem;
+}
+
+.loading-panel {
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    color: var(--ui-text-muted);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--ui-surface-muted) 84%, transparent) 25%, color-mix(in srgb, var(--ui-surface) 92%, transparent) 50%, color-mix(in srgb, var(--ui-surface-muted) 84%, transparent) 75%);
+    background-size: 220% 100%;
+    animation: app-loading 1.25s linear infinite;
+}
+
+@keyframes app-loading {
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: -200% 0;
+    }
+}
+
+.card,
+.table-responsive,
+.modal-content,
+.toast,
+.alert {
+    border-radius: var(--ui-radius) !important;
+    border-color: var(--ui-border) !important;
+    box-shadow: var(--ui-shadow);
+}
+
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: color-mix(in srgb, var(--ui-surface) 75%, var(--ui-bg));
+    --bs-table-hover-bg: color-mix(in srgb, var(--ui-accent) 8%, transparent);
+    color: var(--ui-text);
+}
+
+.form-control,
+.form-select,
+.btn {
+    border-radius: 12px;
+}
+
+.btn.is-busy {
+    cursor: wait;
+}
+
+.empty-state {
+    border: 1px dashed var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: color-mix(in srgb, var(--ui-surface) 90%, transparent);
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: var(--ui-text-muted);
+}
+
+.empty-state-icon {
+    font-size: 2rem;
+    color: var(--ui-accent);
+    margin-bottom: 0.5rem;
+}
+
+.empty-state-title {
+    color: var(--ui-text);
+}
+
+.table-filter-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.table-filter-presets-input {
+    max-width: 280px;
+}
+
+.filter-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ui-surface) 90%, transparent);
+    color: var(--ui-text);
+    padding: 0.25rem 0.65rem;
+    font-size: 0.875rem;
+}
+
+.filter-chip button {
+    border: 0;
+    background: transparent;
+    color: var(--ui-text-muted);
+    line-height: 1;
+    padding: 0;
+}
+
+.command-palette-list {
+    max-height: 46vh;
+    overflow: auto;
+}
+
+.command-palette-item.active {
+    background: color-mix(in srgb, var(--ui-accent) 12%, transparent);
+}
+
+.highlight {
+    outline: 2px solid color-mix(in srgb, var(--ui-accent) 45%, transparent);
+    outline-offset: 1px;
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--ui-accent);
+    --bs-btn-border-color: var(--ui-accent);
+    --bs-btn-hover-bg: var(--ui-accent-strong);
+    --bs-btn-hover-border-color: var(--ui-accent-strong);
+    --bs-btn-active-bg: var(--ui-accent-strong);
+    --bs-btn-active-border-color: var(--ui-accent-strong);
+}
+
+.status-badge.pending {
+    background-color: #f7ce4f;
+}
+
+.status-badge.sent {
+    background-color: var(--ui-success);
+}
+
+.status-badge.failed {
+    background-color: var(--ui-danger);
+}
+
+.app-overlay {
+    display: none;
+}
+
+@media (max-width: 991.98px) {
+    .app-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .app-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(82vw, 320px);
+        height: auto;
+        transform: translateX(-105%);
+        transition: transform 0.2s ease;
+        z-index: 1050;
+    }
+
+    .app-sidebar.is-open {
+        transform: translateX(0);
+    }
+
+    .app-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 16, 30, 0.45);
+        z-index: 1040;
+        display: block;
+    }
+
+    .app-main {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    table.mobile-stack thead {
+        display: none;
+    }
+
+    table.mobile-stack,
+    table.mobile-stack tbody,
+    table.mobile-stack tr,
+    table.mobile-stack td,
+    table.mobile-stack th[scope="row"] {
+        display: block;
+        width: 100%;
+    }
+
+    table.mobile-stack tr {
+        border: 1px solid var(--ui-border);
+        border-radius: 12px;
+        margin-bottom: 0.85rem;
+        padding: 0.5rem 0.75rem;
+        background: color-mix(in srgb, var(--ui-surface) 92%, transparent);
+        box-shadow: var(--ui-shadow);
+    }
+
+    table.mobile-stack td,
+    table.mobile-stack th[scope="row"] {
+        border: 0 !important;
+        padding: 0.45rem 0.1rem !important;
+        text-align: left !important;
+    }
+
+    table.mobile-stack td::before,
+    table.mobile-stack th[scope="row"]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: var(--ui-text-muted);
+        margin-bottom: 0.18rem;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+    }
+
+    table.mobile-stack td[data-label="Actions"] .btn-group,
+    table.mobile-stack td[data-label="Actions"] {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+}
+
+/* SurveyJS bridge: keeps survey pages visually consistent with app theme. */
+.sd-root-modern {
+    --sjs-font-family: "Manrope", "Segoe UI", sans-serif;
+    --sjs-general-backcolor: var(--ui-surface);
+    --sjs-general-forecolor: var(--ui-text);
+    --sjs-primary-backcolor: var(--ui-accent);
+    --sjs-primary-forecolor: #ffffff;
+    --sjs-primary-backcolor-dark: var(--ui-accent-strong);
+    --sjs-secondary-backcolor: color-mix(in srgb, var(--ui-accent) 12%, transparent);
+    --sjs-border-default: var(--ui-border);
+    --sjs-shadow-small: var(--ui-shadow);
+}

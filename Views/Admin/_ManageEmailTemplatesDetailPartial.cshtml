@@ -11,7 +11,7 @@
         </h5>
     </div>
     <div class="card-body">
-        <form method="post" asp-controller="Admin" asp-action="SaveEmailTemplate">
+        <form method="post" asp-controller="Admin" asp-action="SaveEmailTemplate" data-busy-submit data-busy-text="Saving...">
             <input type="hidden" name="selectedModel" value="@ViewData["SelectedModel"]" />
             <input type="hidden" name="EmailTemplateId" value="@Model.EmailTemplateId" />
             <input type="hidden" name="ClientId" value="@Model.ClientId" />
@@ -52,8 +52,3 @@
         </form>
     </div>
 </div>
-
-<script>
-        // Call the initialization function to set up event listeners and initial state
-        //initializePartialViewScripts();
-</script>

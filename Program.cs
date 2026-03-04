@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.DataProtection;
 using reviews.Models;
 using reviews.Services;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
 
@@ -41,6 +40,12 @@ builder.Services.AddScoped<ISurveyCompletionService, SurveyCompletionService>();
 builder.Services.AddScoped<IUserRoleService, UserRoleService>();
 builder.Services.AddScoped<ISessionInitializationService, SessionInitializationService>();
 builder.Services.AddScoped<MigrationService>();
+
+// SurveyJS Integration Services (Issue #9)
+builder.Services.AddScoped<ISurveyTemplateResolver, SurveyTemplateResolver>();
+builder.Services.AddScoped<ISurveyAssignmentResolver, SurveyAssignmentResolver>();
+builder.Services.AddScoped<ISurveyResponseStore, SurveyResponseStore>();
+builder.Services.AddScoped<IEvaluationParticipantStatusService, EvaluationParticipantStatusService>();
 
 builder.Services.AddDistributedMemoryCache();
 

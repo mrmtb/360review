@@ -10,7 +10,7 @@
     <label>Evaluations</label>
     @if (Model.Evaluations != null && Model.Evaluations.Any())
     {
-        <select class="form-select" id="evaluationSelect" name="SelectedEvaluationId" data-url="@Url.Action("GetRatersForEvaluation", "Admin")" data-url2="@Url.Action("GetRateesForEvaluation", "Admin")">
+        <select class="form-select" id="evaluationSelect" name="SelectedEvaluationId" data-participant-id="@(Model.Participant != null ? Model.Participant.ParticipantId.ToString() : "")" data-raters-url="@Url.Action("GetRatersForEvaluation", "Admin")" data-ratees-url="@Url.Action("GetRateesForEvaluation", "Admin")">
             @foreach (var item in Model.Evaluations.OrderByDescending(e => e.EvaluationRaterDueDate))
             {
                 <option value="@item.EvaluationId">
@@ -27,76 +27,34 @@
 
 <div class="form-group">
     <h4>Evaluations with this participant as Ratee</h4>
-    @if (Model.Raters != null)
-    {
-    <table class="table table-striped table-hover table-condensed" id="ratersContainer">
-        <thead>
-            <tr>
-                <th>Rater Name</th>
-                <th>Completing As</th>
-                <th>Last Email</th>
-                <th>Status</th>
-            </tr>
-        </thead>    
-    @foreach (var item in Model.Raters)
-    {
-        <tr class="align-middle">
-            <td>@item.ParticipantNameFirst @item.ParticipantNameLast (@item.ParticipantEmail)</td>
-            <td>@item.ParticipantRoleName</td>
-            <td>@item.EvaluationParticipantDateLastEmailed?.ToString("g")</td>
-            <td>
-                <a class="btn btn-sm btn-sm-nopad">
-                    @Html.Raw(item.EvaluationParticipantStatusDecoration)
-                    @item.EvaluationParticipantStatusName
-                </a>
-            </td>
-        </tr>
-    }
-    </table>
-    }
-    else
-    {
-        <span class="form-control-plaintext">No Raters found.</span>
-    }
+    <div id="ratersContainer">
+        @if (Model.Raters != null && Model.Raters.Any())
+        {
+            @await Html.PartialAsync("_RatersTablePartial", Model.Raters)
+        }
+        else
+        {
+            <span class="form-control-plaintext">No Raters found.</span>
+        }
+    </div>
 </div>
 
 <div class="form-group">
     <h4>Evaluations with this participant completing</h4>
-    @if (Model.Ratees != null)
-    {
-    <table class="table table-striped table-hover table-condensed" id="rateesContainer">
-        <thead>
-            <tr>
-                <th>Ratee Name</th>
-                <th>Completing As</th>
-                <th>Last Email</th>
-                <th>Status</th>
-            </tr>
-        </thead>    
-    @foreach (var item in Model.Ratees)
-    {
-        <tr class="align-middle">
-            <td>@item.ParticipantNameFirst @item.ParticipantNameLast (@item.ParticipantEmail)</td>
-            <td>@item.ParticipantRoleName</td>
-            <td>@item.EvaluationParticipantDateLastEmailed?.ToString("g")</td>
-            <td>
-                <a class="btn btn-sm btn-sm-nopad">
-                    @Html.Raw(item.EvaluationParticipantStatusDecoration)
-                    @item.EvaluationParticipantStatusName
-                </a>
-            </td>
-        </tr>
-    }
-    </table>
-    }
-    else
-    {
-        <span class="form-control-plaintext">No Raters found.</span>
-    }
+    <div id="rateesContainer">
+        @if (Model.Ratees != null && Model.Ratees.Any())
+        {
+            @await Html.PartialAsync("_RateesTablePartial", Model.Ratees)
+        }
+        else
+        {
+            <span class="form-control-plaintext">No evaluations found.</span>
+        }
+    </div>
 </div>
 
 <h4>Participant Details</h4>
-<form asp-action="SaveParticipant" asp-controller="Admin" method="post">
+<form asp-action="SaveParticipant" asp-controller="Admin" method="post" data-busy-submit data-busy-text="Saving...">
     <input type="hidden" asp-for="Participant.ParticipantId" />
     <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
     <div class="form-group">
@@ -135,36 +93,5 @@
 </form>
 
 @section Scripts {
-    <script>
-        $(function () {
-            $('#evaluationSelect').change(function () {
-                var evalId = $(this).val();
-                var url = $(this).data('url');
-                var url2 = $(this).data('url2');
-                var participantId = '@(Model.Participant != null ? Model.Participant.ParticipantId.ToString() : "")';
-                console.log("Selected Evaluation ID: " + evalId + " participantId: " + participantId + ", URL: " + url + ", URL2: " + url2);
-                $.get(url, { evaluationId: evalId, participantId: participantId }, function (data) {
-                    $('#ratersContainer').html(data);
-                });
-                $.get(url2, { evaluationId: evalId, participantId: participantId }, function (data) {
-                    $('#rateesContainer').html(data);
-                });
-            });
-        });
-
-        $(document).ready(function () {
-            // Trigger change event to load initial data
-            // Find the first option containing the word "Active" and select it
-            $('#evaluationSelect option').each(function () {
-                if ($(this).text().includes("Active")) {
-                    $(this).prop('selected', true);
-                    return false; // Break the loop after selecting the first match
-                }
-            });
-
-            // Trigger the change event to load the corresponding data
-            $('#evaluationSelect').trigger('change');
-        });
-
-    </script>
+    <script src="/js/pages/admin-edit-participant.js" asp-append-version="true"></script>
 }

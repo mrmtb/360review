@@ -64,9 +64,14 @@ public class EmailTemplateService : IEmailTemplateService
                     var dateValue = (DateTime?)newValue;
                     if (dateValue.HasValue)
                     {
-                        if (!oldValue?.Equals(dateValue.Value) ?? true)
+                        // Convert to UTC for PostgreSQL timestamp with time zone
+                        var utcValue = dateValue.Value.Kind == DateTimeKind.Unspecified 
+                            ? DateTime.SpecifyKind(dateValue.Value, DateTimeKind.Utc)
+                            : dateValue.Value.ToUniversalTime();
+
+                        if (!oldValue?.Equals(utcValue) ?? true)
                         {
-                            prop.SetValue(emailTemplate, dateValue.Value);
+                            prop.SetValue(emailTemplate, utcValue);
                         }
                     }
                 }

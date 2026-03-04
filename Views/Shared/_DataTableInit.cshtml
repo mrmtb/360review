@@ -1,0 +1,34 @@
+@{
+    var selector = ViewData["Selector"]?.ToString() ?? string.Empty;
+    var searchPlaceholder = ViewData["SearchPlaceholder"]?.ToString() ?? string.Empty;
+    var pageLength = ViewData["PageLength"]?.ToString() ?? "25";
+    var saveState = (ViewData["SaveState"]?.ToString() ?? "false").ToLowerInvariant();
+    var orderJs = ViewData["OrderJs"]?.ToString() ?? "[[0, 'asc']]";
+    var columnDefsJs = ViewData["ColumnDefsJs"]?.ToString() ?? "[]";
+    var momentFormat = ViewData["MomentFormat"]?.ToString() ?? string.Empty;
+    var momentLocale = ViewData["MomentLocale"]?.ToString() ?? "en";
+}
+
+@if (!string.IsNullOrWhiteSpace(selector))
+{
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const table = window.AppUI?.initDataTable({
+            selector: '@selector',
+            pageLength: @pageLength,
+            saveState: @saveState,
+            order: @Html.Raw(orderJs),
+            columnDefs: @Html.Raw(columnDefsJs),
+            searchPlaceholder: '@searchPlaceholder',
+            momentFormat: '@momentFormat',
+            momentLocale: '@momentLocale'
+        });
+
+        window.AppUI?.initTableFilterPresets({
+            selector: '@selector',
+            table: table,
+            searchPlaceholder: '@searchPlaceholder'
+        });
+    });
+</script>
+}
