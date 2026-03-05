@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -22,8 +21,6 @@ public class AdminController : Controller
     private readonly IClientService _clientService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly IReviewSessionService _sessionService;
-    private readonly ISessionInitializationService _sessionInitService;
-    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<AdminController> _logger;
 
     private Guid LocalClientId => GetSessionData()?.ClientId ?? Guid.Empty;
@@ -37,8 +34,6 @@ public class AdminController : Controller
         IClientService clientService,
         IEmailTemplateService emailTemplateService,
         IReviewSessionService sessionService,
-        ISessionInitializationService sessionInitService,
-        UserManager<ApplicationUser> userManager,
         ILogger<AdminController> logger)
     {
         _participantService = participantService;
@@ -47,8 +42,6 @@ public class AdminController : Controller
         _clientService = clientService;
         _emailTemplateService = emailTemplateService;
         _sessionService = sessionService;
-        _sessionInitService = sessionInitService;
-        _userManager = userManager;
         _logger = logger;
     }
 
@@ -62,53 +55,6 @@ public class AdminController : Controller
         {
             _logger.LogError(ex, "Failed to retrieve session data");
             return null;
-        }
-    }
-
-    private async Task<bool> EnsureSessionInitializedAsync()
-    {
-        try
-        {
-            var sessionData = GetSessionData();
-            
-            // Session already initialized
-            if (sessionData != null && sessionData.ClientId != Guid.Empty)
-            {
-                return true;
-            }
-
-            // Get current user
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null || string.IsNullOrEmpty(user.Email))
-            {
-                _logger.LogWarning("Unable to initialize session - user not found");
-                return false;
-            }
-
-            // Initialize session for Admin/Client role
-            var email = user.Email;
-            var role = sessionData?.Role ?? LocalRole;
-            
-            if (string.IsNullOrEmpty(role))
-            {
-                role = RoleNames.Admin; // Default to Admin for this controller
-            }
-
-            var newSessionData = await _sessionInitService.InitializeClientSessionAsync(email, role);
-            if (newSessionData == null)
-            {
-                _logger.LogError("Failed to initialize session for {Email}", email);
-                return false;
-            }
-
-            _sessionService.SetSessionData(newSessionData);
-            _logger.LogInformation("Session initialized for {Email} with ClientId {ClientId}", email, newSessionData.ClientId);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error ensuring session initialized");
-            return false;
         }
     }
 
@@ -287,9 +233,9 @@ public class AdminController : Controller
     [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> AddParticipantToEvaluation(Guid participantId, string returnUrl)
     {
-        if (!await EnsureSessionInitializedAsync())
+        if (LocalClientId == Guid.Empty)
         {
-            _logger.LogWarning("Session initialization failed in AddParticipantToEvaluation");
+            _logger.LogWarning("Session unavailable in AddParticipantToEvaluation.");
             return RedirectToAction(nameof(ViewParticipants));
         }
 
@@ -344,13 +290,11 @@ public class AdminController : Controller
     }
 
     // GET: ManageIndex
-    public async Task<IActionResult> ManageIndex(string selectedModel = "Evaluations")
+    public IActionResult ManageIndex(string selectedModel = "Evaluations")
     {
-        // Ensure session is initialized
-        if (!await EnsureSessionInitializedAsync())
+        if (LocalClientId == Guid.Empty)
         {
-            _logger.LogWarning("Session initialization failed in ManageIndex");
-            // Continue anyway - some operations may still work
+            _logger.LogWarning("Session unavailable in ManageIndex.");
         }
 
         ViewData["SelectedModel"] = selectedModel;
