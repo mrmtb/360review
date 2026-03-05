@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using reviews.Constants;
 using reviews.Models;
 using reviews.Services;
@@ -14,19 +13,13 @@ public class ParticipantController : Controller
     private readonly ISurveyUrlBuilder _surveyUrlBuilder;
     private readonly ISurveyCompletionService _surveyCompletionService;
     private readonly IReviewSessionService _sessionService;
-    private readonly ISessionInitializationService _sessionInitService;
-    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<ParticipantController> _logger;
 
-    private Guid LocalClientId { get; set; } = Guid.Empty;
-    private string LocalClientName { get; set; } = "";
-    private Guid LocalUserId { get; set; }
-    private Guid LocalParticipantId { get; set; }
-    private string LocalEmail { get; set; } = "";
-    private string LocalRole { get; set; } = "";
-    private string LocalClientLogoLocation { get; set; } = "";
-    private Guid LocalDefaultEvaluationId { get; set; } = Guid.Empty;
-    private int LocalOpenRatings { get; set; } = -1;
+    private SessionData SessionData => _sessionService.GetSessionData();
+    private Guid LocalClientId => SessionData.ClientId;
+    private Guid LocalParticipantId => SessionData.ParticipantId;
+    private string LocalEmail => SessionData.Email ?? string.Empty;
+    private string LocalRole => SessionData.Role ?? string.Empty;
 
     public ParticipantController(
         IParticipantService participantService,
@@ -34,8 +27,6 @@ public class ParticipantController : Controller
         ISurveyUrlBuilder surveyUrlBuilder,
         ISurveyCompletionService surveyCompletionService,
         IReviewSessionService sessionService,
-        ISessionInitializationService sessionInitService,
-        UserManager<ApplicationUser> userManager,
         ILogger<ParticipantController> logger)
     {
         _participantService = participantService;
@@ -43,90 +34,20 @@ public class ParticipantController : Controller
         _surveyUrlBuilder = surveyUrlBuilder;
         _surveyCompletionService = surveyCompletionService;
         _sessionService = sessionService;
-        _sessionInitService = sessionInitService;
-        _userManager = userManager;
         _logger = logger;
-
-        var sessionData = _sessionService.GetSessionData();
-
-        if (sessionData != null)
-        {
-            LocalUserId = sessionData.UserId;
-            LocalParticipantId = sessionData.ParticipantId;
-            LocalEmail = sessionData.Email;
-            LocalRole = sessionData.Role;
-            LocalClientId = sessionData.ClientId;
-            LocalClientName = sessionData.ClientName;
-            LocalClientLogoLocation = sessionData.ClientLogoLocation;
-            LocalDefaultEvaluationId = sessionData.DefaultEvaluationId;
-            LocalOpenRatings = sessionData.OpenRatingCount;
-        }
-    }
-
-    private async Task<bool> EnsureSessionInitializedAsync()
-    {
-        try
-        {
-            var sessionData = _sessionService.GetSessionData();
-            
-            // Session already initialized
-            if (sessionData != null && sessionData.ClientId != Guid.Empty)
-            {
-                return true;
-            }
-
-            // Get current user
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null || string.IsNullOrEmpty(user.Email))
-            {
-                _logger.LogWarning("Unable to initialize session - user not found");
-                return false;
-            }
-
-            // Initialize session based on role
-            var email = user.Email;
-            var role = sessionData?.Role ?? LocalRole;
-            
-            SessionData? newSessionData = null;
-            
-            if (role == RoleNames.Participant)
-            {
-                newSessionData = await _sessionInitService.InitializeParticipantSessionAsync(email);
-            }
-            else if (role == RoleNames.Admin || role == RoleNames.Client)
-            {
-                newSessionData = await _sessionInitService.InitializeClientSessionAsync(email, role);
-            }
-
-            if (newSessionData == null)
-            {
-                _logger.LogError("Failed to initialize session for {Email}", email);
-                return false;
-            }
-
-            _sessionService.SetSessionData(newSessionData);
-            _logger.LogInformation("Session initialized for {Email} with ClientId {ClientId}", email, newSessionData.ClientId);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error ensuring session initialized");
-            return false;
-        }
     }
 
     [Authorize(Roles = RoleNames.AdminOrParticipant)]
     public async Task<IActionResult> ParticipantIndex(Guid? EvaluationId, Guid? ParticipantId)
     {
-        // Ensure session is initialized
-        if (!await EnsureSessionInitializedAsync())
-        {
-            _logger.LogWarning("Session initialization failed in ParticipantIndex");
-            // Continue anyway - may still work for some operations
-        }
-
         try
         {
+            if (LocalClientId == Guid.Empty)
+            {
+                _logger.LogWarning("Session unavailable in ParticipantIndex.");
+                return View(new List<vwEvaluationsToComplete>());
+            }
+
             Guid targetParticipantId = LocalRole == RoleNames.Admin && ParticipantId.HasValue 
                 ? ParticipantId.Value 
                 : LocalParticipantId;

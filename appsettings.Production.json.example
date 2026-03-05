@@ -21,6 +21,16 @@
     "ApiKey": "",
     "_comment": "Endatix runs on same Windows server, port 5001. For HTTPS: https://localhost:5001"
   },
+  "Authentication": {
+    "Entra": {
+      "Enabled": true,
+      "ClientId": "YOUR_ENTRA_APP_CLIENT_ID",
+      "ClientSecret": "YOUR_ENTRA_APP_CLIENT_SECRET",
+      "TenantId": "common",
+      "AuthorityBase": "https://login.microsoftonline.com",
+      "CallbackPath": "/signin-oidc"
+    }
+  },
   "Survey": {
     "DefaultTemplateId": "REPLACE_WITH_ACTUAL_TEMPLATE_ID_FROM_ENDATIX",
     "TemplatePath": "survey3.json"
