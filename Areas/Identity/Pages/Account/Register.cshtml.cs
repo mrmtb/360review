@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using reviews.Models;
+using reviews.Services;
 
 namespace reviews.Areas.Identity.Pages.Account
 {
@@ -30,13 +31,15 @@ namespace reviews.Areas.Identity.Pages.Account
         private readonly IUserEmailStore<ApplicationUser> _emailStore;
         private readonly ILogger<RegisterModel> _logger;
         private readonly IEmailSender _emailSender;
+        private readonly IClientDomainAccessService _clientDomainAccessService;
 
         public RegisterModel(
             UserManager<ApplicationUser> userManager,
             IUserStore<ApplicationUser> userStore,
             SignInManager<ApplicationUser> signInManager,
             ILogger<RegisterModel> logger,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            IClientDomainAccessService clientDomainAccessService)
         {
             _userManager = userManager;
             _userStore = userStore;
@@ -44,6 +47,7 @@ namespace reviews.Areas.Identity.Pages.Account
             _signInManager = signInManager;
             _logger = logger;
             _emailSender = emailSender;
+            _clientDomainAccessService = clientDomainAccessService;
         }
 
         /// <summary>
@@ -113,6 +117,13 @@ namespace reviews.Areas.Identity.Pages.Account
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
             if (ModelState.IsValid)
             {
+                var isAllowedDomain = await _clientDomainAccessService.IsEmailDomainAllowedAsync(Input.Email);
+                if (!isAllowedDomain)
+                {
+                    ModelState.AddModelError(string.Empty, "We couldn't create that account because the email domain is not authorized for any active client.");
+                    return Page();
+                }
+
                 var user = CreateUser();
 
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
