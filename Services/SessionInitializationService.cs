@@ -49,7 +49,8 @@ public class SessionInitializationService : ISessionInitializationService
                 .AsNoTracking()
                 .Where(v => v.Rater == participant.ParticipantId 
                     && v.EvaluationParticipantStatusIsActive == 1 
-                    && v.EvaluationParticipantStatusIsComplete == 0)
+                    && v.EvaluationParticipantStatusIsComplete == 0
+                    && v.EvaluationActive == true)
                 .CountAsync();
 
             var sessionData = new SessionData

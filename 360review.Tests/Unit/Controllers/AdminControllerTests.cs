@@ -5,8 +5,8 @@ using Microsoft.Extensions.Logging;
 using reviews.Controllers.Admin;
 using reviews.Models;
 using reviews.Services;
-using reviews.Tests.Helpers;
 using reviews.Constants;
+using reviews.Tests.Helpers;
 
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type
 #pragma warning disable CS8602 // Dereference of a possibly null reference
@@ -51,40 +51,54 @@ public class AdminControllerTests
     }
 
     [Fact]
-    public async Task ViewParticipants_ReturnsViewWithParticipants()
+    public async Task People_ReturnsViewWithParticipants()
     {
         // Arrange
-        var clientId = Guid.NewGuid();
-        var participants = TestDataBuilder.CreateAdminParticipantList(3);
-        
+        var people = new List<AdminPersonRow>
+        {
+            new() { ParticipantId = Guid.NewGuid(), ParticipantNameFirst = "A", ParticipantNameLast = "One", ParticipantEmail = "a1@example.com" },
+            new() { ParticipantId = Guid.NewGuid(), ParticipantNameFirst = "B", ParticipantNameLast = "Two", ParticipantEmail = "b2@example.com" },
+            new() { ParticipantId = Guid.NewGuid(), ParticipantNameFirst = "C", ParticipantNameLast = "Three", ParticipantEmail = "c3@example.com" }
+        };
+
         _mockParticipantService
-            .Setup(x => x.GetParticipantsByClientAsync(It.IsAny<Guid>()))
-            .ReturnsAsync(participants);
+            .Setup(x => x.GetAdminPeopleByClientAsync(It.IsAny<Guid>()))
+            .ReturnsAsync(people);
 
         // Act
-        var result = await _controller.ViewParticipants();
+        var result = await _controller.People("participants");
 
         // Assert
         var viewResult = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsAssignableFrom<List<vwAdminParticipants>>(viewResult.Model);
-        Assert.Equal(3, model.Count);
+        Assert.Equal("ViewPeople", viewResult.ViewName);
+        var model = Assert.IsType<AdminPeopleViewModel>(viewResult.Model);
+        Assert.Equal(3, model.People.Count);
     }
 
     [Fact]
-    public async Task ViewParticipants_ServiceReturnsEmpty_ReturnsEmptyView()
+    public async Task People_ServiceReturnsEmpty_ReturnsEmptyView()
     {
         // Arrange
         _mockParticipantService
-            .Setup(x => x.GetParticipantsByClientAsync(It.IsAny<Guid>()))
-            .ReturnsAsync(new List<vwAdminParticipants>());
+            .Setup(x => x.GetAdminPeopleByClientAsync(It.IsAny<Guid>()))
+            .ReturnsAsync(new List<AdminPersonRow>());
 
         // Act
-        var result = await _controller.ViewParticipants();
+        var result = await _controller.People("participants");
 
         // Assert
         var viewResult = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsAssignableFrom<List<vwAdminParticipants>>(viewResult.Model);
-        Assert.Empty(model);
+        Assert.Equal("ViewPeople", viewResult.ViewName);
+        var model = Assert.IsType<AdminPeopleViewModel>(viewResult.Model);
+        Assert.Empty(model.People);
+    }
+
+    [Fact]
+    public void ViewParticipants_RedirectsToPeopleParticipantsTab()
+    {
+        var result = _controller.ViewParticipants();
+        var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("People", redirectResult.ActionName);
     }
 
     [Fact]
@@ -193,7 +207,7 @@ public class AdminControllerTests
             Times.Once());
         
         var redirectResult = Assert.IsType<RedirectToActionResult>(result);
-        Assert.Equal(returnUrl, redirectResult.ActionName);
+        Assert.Equal("People", redirectResult.ActionName);
     }
 
     [Fact]

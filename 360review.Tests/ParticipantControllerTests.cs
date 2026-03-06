@@ -1,11 +1,7 @@
 using Moq;
 using Xunit;
-using Microsoft.AspNetCore.Mvc;
 using reviews.Controllers.ParticipantController;
-using reviews.Models;
-using Microsoft.AspNetCore.Identity;
-using reviews.Services; // Add this or replace with the correct namespace for ReviewSessionService
-using Microsoft.EntityFrameworkCore;
+using reviews.Services;
 using Microsoft.Extensions.Logging;
 
 public class ParticipantControllerTests
@@ -15,6 +11,7 @@ public class ParticipantControllerTests
     private readonly Mock<ISurveyUrlBuilder> _mockSurveyUrlBuilder;
     private readonly Mock<ISurveyCompletionService> _mockSurveyCompletionService;
     private readonly Mock<IReviewSessionService> _mockReviewSessionService;
+    private readonly Mock<ISessionInitializationService> _mockSessionInitializationService;
     private readonly Mock<ILogger<ParticipantController>> _mockLogger;
     private readonly ParticipantController _controller;
 
@@ -25,6 +22,7 @@ public class ParticipantControllerTests
         _mockSurveyUrlBuilder = new Mock<ISurveyUrlBuilder>();
         _mockSurveyCompletionService = new Mock<ISurveyCompletionService>();
         _mockReviewSessionService = new Mock<IReviewSessionService>();
+        _mockSessionInitializationService = new Mock<ISessionInitializationService>();
         _mockLogger = new Mock<ILogger<ParticipantController>>();
 
         _controller = new ParticipantController(
@@ -33,6 +31,7 @@ public class ParticipantControllerTests
             _mockSurveyUrlBuilder.Object,
             _mockSurveyCompletionService.Object,
             _mockReviewSessionService.Object,
+            _mockSessionInitializationService.Object,
             _mockLogger.Object
         );
     }

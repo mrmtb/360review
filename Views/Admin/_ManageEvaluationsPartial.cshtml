@@ -27,7 +27,11 @@
                 <td>@(item.EvaluationOpenDate is DateTime dt1 ? dt1.ToString("yyyy-MM-ddTHH:mm") : "")</td>
                 <td>@(item.EvaluationRateeDueDate is DateTime dt2 ? dt2.ToString("yyyy-MM-ddTHH:mm") : "")</td>
                 <td>
-                    <button class="btn btn-sm btn-primary load-details" data-url="GetEvaluationDetails" data-id="@item.EvaluationId">
+                    <button
+                        class="btn btn-sm btn-primary"
+                        hx-get="@Url.Action("GetEvaluationDetails", "Admin", new { id = item.EvaluationId })"
+                        hx-target="#detailsContainer"
+                        hx-swap="innerHTML">
                         <i class="bi bi-pencil-square"></i> Details
                     </button>
                 </td>

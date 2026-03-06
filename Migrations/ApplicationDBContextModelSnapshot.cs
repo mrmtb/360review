@@ -18,12 +18,12 @@ namespace reviews.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("public")
-                .HasAnnotation("ProductVersion", "10.0.2")
+                .HasAnnotation("ProductVersion", "10.0.3")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("DataProtectionKey", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -32,11 +32,9 @@ namespace reviews.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("FriendlyName")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Xml")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -529,6 +527,15 @@ namespace reviews.Migrations
                     b.Property<int?>("ParticipantRoleId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("SurveyLastSavedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SurveyTemplateKey")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SurveyTemplateVersion")
+                        .HasColumnType("integer");
+
                     b.HasKey("EvaluationRateeId", "ParticipantId");
 
                     b.HasIndex("EvaluationParticipantStatusId");
@@ -538,6 +545,61 @@ namespace reviews.Migrations
                     b.HasIndex("ParticipantRoleId");
 
                     b.ToTable("EvaluationParticipant", "public");
+                });
+
+            modelBuilder.Entity("reviews.Models.EvaluationParticipantResponse", b =>
+                {
+                    b.Property<Guid>("EvaluationParticipantResponseId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("DraftJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("EvaluationParticipantSurveyPassword")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("EvaluationRateeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FinalJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<bool>("IsSubmitted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastSavedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RaterParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SurveyTemplateKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SurveyTemplateVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EvaluationParticipantResponseId");
+
+                    b.HasIndex("RaterParticipantId");
+
+                    b.HasIndex(new[] { "EvaluationRateeId" }, "IX_EvaluationParticipantResponse_RateeId");
+
+                    b.HasIndex(new[] { "SurveyTemplateKey", "SurveyTemplateVersion" }, "IX_EvaluationParticipantResponse_Template");
+
+                    b.HasIndex(new[] { "EvaluationParticipantSurveyPassword" }, "UK_EvaluationParticipantResponse_Password")
+                        .IsUnique();
+
+                    b.ToTable("EvaluationParticipantResponse", "public");
                 });
 
             modelBuilder.Entity("reviews.Models.EvaluationParticipantStatus", b =>
@@ -1315,6 +1377,25 @@ namespace reviews.Migrations
                     b.Navigation("ParticipantRoles");
 
                     b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("reviews.Models.EvaluationParticipantResponse", b =>
+                {
+                    b.HasOne("reviews.Models.EvaluationRatee", "EvaluationRatee")
+                        .WithMany()
+                        .HasForeignKey("EvaluationRateeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("reviews.Models.Participant", "RaterParticipant")
+                        .WithMany()
+                        .HasForeignKey("RaterParticipantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("EvaluationRatee");
+
+                    b.Navigation("RaterParticipant");
                 });
 
             modelBuilder.Entity("reviews.Models.EvaluationRatee", b =>

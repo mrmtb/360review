@@ -1,0 +1,139 @@
+@model reviews.Models.AdminPeopleViewModel
+
+@{
+    var people = Model.People?.ToList() ?? new List<AdminPersonRow>();
+    ViewBag.Title = "People Management";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="/vendor/datatables/dataTables.bootstrap5.min.css">
+}
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <h4 class="mb-0">People</h4>
+    <div class="small text-muted">Single consolidated view of participants and ratees in active and open work contexts.</div>
+</div>
+
+@if (TempData["PeopleSuccess"] is string peopleSuccess)
+{
+    <div class="alert alert-success py-2" role="alert">@peopleSuccess</div>
+}
+@if (TempData["PeopleError"] is string peopleError)
+{
+    <div class="alert alert-danger py-2" role="alert">@peopleError</div>
+}
+
+@if (!people.Any())
+{
+    @await Html.PartialAsync("_EmptyState", new ViewDataDictionary(ViewData)
+    {
+        ["IconClass"] = "bi bi-people",
+        ["Title"] = "No people available",
+        ["Message"] = "People will appear here after they are imported or created."
+    })
+}
+else
+{
+    <div class="table-filter-presets mb-2" id="peopleQuickFilters">
+        <span class="small text-muted me-1">Quick Filters:</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary active" data-filter="all">Everyone</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="ratee">Ratees</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="active-eval">In Active Evaluation</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="open-items">Has Open Items</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mobile-stack people-table" id="peopleTable">
+            <thead>
+                <tr>
+                    <th>Person</th>
+                    <th>In Active Eval</th>
+                    <th>Is Ratee</th>
+                    <th>Has Open Items</th>
+                    <th>Last Emailed</th>
+                    <th>Date Added</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var p in people)
+            {
+                <tr class="align-middle">
+                    <td data-label="Person" data-order="@($"{p.ParticipantNameLast} {p.ParticipantNameFirst}")">
+                        <div class="fw-semibold">@p.ParticipantNameFirst @p.ParticipantNameLast</div>
+                        <div class="small text-muted">@p.ParticipantEmail</div>
+                        @if (!p.ParticipantIsActive)
+                        {
+                            <div class="small text-warning-emphasis mt-1">
+                                <i class="bi bi-pause-circle me-1"></i>Inactive
+                            </div>
+                        }
+                    </td>
+                    <td data-label="In Active Eval" data-order="@(p.IsInActiveEvaluation ? 1 : 0)">
+                        <span class="d-none">@(p.IsInActiveEvaluation ? "true" : "false")</span>
+                        @if (p.IsInActiveEvaluation)
+                        {
+                            <i class="bi bi-activity text-primary" title="In active evaluation"></i>
+                        }
+                    </td>
+                    <td data-label="Is Ratee" data-order="@(p.IsRatee ? 1 : 0)">
+                        <span class="d-none">@(p.IsRatee ? "true" : "false")</span>
+                        @if (p.IsRatee)
+                        {
+                            <i class="bi bi-person-badge text-info" title="Ratee"></i>
+                        }
+                    </td>
+                    <td data-label="Has Open Items" data-order="@(p.HasOpenItems ? 1 : 0)">
+                        <span class="d-none">@(p.HasOpenItems ? "true" : "false")</span>
+                        @if (p.HasOpenItems)
+                        {
+                            <i class="bi bi-exclamation-circle text-danger" title="Has open items"></i>
+                        }
+                    </td>
+                    <td data-label="Last Emailed">@p.LastEmailedAt?.ToString("g")</td>
+                    <td data-label="Date Added">@p.RateeDateAdded?.ToString("g")</td>
+                    <td data-label="Actions">
+                        <div class="btn-group btn-group-sm" role="group">
+                            @if (p.IsRatee)
+                            {
+                                <a asp-action="ViewRaters" asp-controller="Participant" asp-route-participantID="@p.ParticipantId" class="btn btn-outline-info" title="Edit Raters">
+                                    <i class="bi bi-people"></i>
+                                </a>
+                            }
+                            <a asp-action="DumpParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="People" asp-route-returnTab="participants" class="btn btn-outline-secondary" title="View Data">
+                                <i class="bi bi-file-text"></i>
+                            </a>
+                            <a asp-action="EditParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="People" asp-route-returnTab="participants" class="btn btn-outline-primary" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            @if (p.IsInActiveEvaluation)
+                            {
+                                <a asp-action="RemindPersonFromPeople"
+                                   asp-controller="Admin"
+                                   asp-route-participantId="@p.ParticipantId"
+                                   asp-route-returnUrl="People"
+                                   class="btn btn-outline-info"
+                                   title="Send Reminder"
+                                   data-confirm="Send reminder email now?">
+                                    <i class="bi bi-envelope"></i>
+                                </a>
+                            }
+                            <a asp-action="ToggleParticipant" asp-controller="Admin" asp-route-participantId="@p.ParticipantId" asp-route-returnUrl="People" asp-route-returnTab="participants" class="btn @(p.ParticipantIsActive ? "btn-outline-danger" : "btn-outline-success")" title="@(p.ParticipantIsActive ? "Disable" : "Re-enable")" data-confirm="@(p.ParticipantIsActive ? "Disable this participant?" : "Re-enable this participant?")">
+                                <i class="bi bi-@(p.ParticipantIsActive ? "x-circle" : "check-circle")"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+    <script src="/vendor/datatables/dataTables.min.js"></script>
+    <script src="/vendor/datatables/dataTables.bootstrap5.min.js"></script>
+    <script src="/vendor/moment/moment.min.js"></script>
+    <script src="/vendor/datatables/datetime-moment.js"></script>
+    <script src="/js/pages/admin-view-people.js" asp-append-version="true"></script>
+}

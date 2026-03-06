@@ -2,68 +2,81 @@
 
 @{
     ViewBag.Title = "Evaluations to Complete";
+    var evaluations = Model?.ToList() ?? new List<vwEvaluationsToComplete>();
+    var hasEvaluations = evaluations.Any();
+    var useDataTable = evaluations.Count > 8;
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://cdn.datatables.net/2.0.0/css/dataTables.bootstrap5.min.css">
+    @if (useDataTable)
+    {
+        <link rel="stylesheet" href="/vendor/datatables/dataTables.bootstrap5.min.css">
+    }
 }
 
     <h3>Evaluations to complete:</h3>
 
     <p>Thank you for providing feedback. You have an opportunity to help these individuals enhance their performance by providing honest, objective feedback.</p>
 
-    <div class="table-responsive">
-        <table class="table table-hover table-sm align-middle" id="EvaluationsTable">
-            <thead>
-                <tr>
-                    <th>Ratee Name</th>
-                    <th>Completing As</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var p in Model)
-            {
-                <tr class="align-middle">
-                @if (p.EvaluationParticipantStatusIsComplete == 0 && p.EvaluationParticipantStatusIsActive == 1)    
+    @if (!hasEvaluations)
+    {
+        @await Html.PartialAsync("_EmptyState", new ViewDataDictionary(ViewData)
+        {
+            ["IconClass"] = "bi bi-clipboard-check",
+            ["Title"] = "No evaluations pending",
+            ["Message"] = "You currently have no evaluations assigned to complete."
+        })
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover table-sm align-middle mobile-stack" id="EvaluationsTable">
+                <thead>
+                    <tr>
+                        <th>Ratee Name</th>
+                        <th>Completing As</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var p in evaluations)
                 {
-                    <th scope="row">@p.ParticipantNameLast, @p.ParticipantNameFirst (@p.ParticipantEmail)</th>
-                }
-                else 
-                {
-                    <td>@p.ParticipantNameLast, @p.ParticipantNameFirst (@p.ParticipantEmail)</td>
-                }
-                    <td>@p.ParticipantRoleName</td>
-                    <td>@p.DueDate?.ToString("g")</td>
-                @if (p.EvaluationParticipantStatusIsComplete == 0 && p.EvaluationParticipantStatusIsActive == 1)    
-                {
-                    <td>@(Html.Raw(p.EvaluationParticipantStatusDecoration)) @p.EvaluationParticipantStatusName</td>
-                    <td>
-                    @if (p.ParticipantRoleName == "Self")
+                    <tr class="align-middle">
+                    @if (p.EvaluationParticipantStatusIsComplete == 0 && p.EvaluationParticipantStatusIsActive == 1)
                     {
-                        <a asp-action="LaunchEvaluation" asp-controller="Participant" asp-route-evaluationRateeId="@p.EvaluationRateeId" asp-route-participantId="@p.ParticipantId" class="btn btn-primary btn-sm">
-                            <i class="bi bi-play"></i> Launch
-                        </a>
+                        <th scope="row" data-label="Ratee Name">@p.ParticipantNameLast, @p.ParticipantNameFirst (@p.ParticipantEmail)</th>
                     }
                     else
                     {
-                        <a asp-action="OptOutEvaluation" asp-controller="Participant" asp-route-evaluationId="@p.EvaluationId" class="btn btn-sm">
-                            <i class="bi bi-diamond-exclamation" style="color: rgb(216, 51, 51);"></i> Opt-out</a>
+                        <td data-label="Ratee Name">@p.ParticipantNameLast, @p.ParticipantNameFirst (@p.ParticipantEmail)</td>
                     }
-                    </td>
+                        <td data-label="Completing As">@p.ParticipantRoleName</td>
+                        <td data-label="Due Date">@p.DueDate?.ToString("g")</td>
+                    @if (p.EvaluationParticipantStatusIsComplete == 0 && p.EvaluationParticipantStatusIsActive == 1)
+                    {
+                        <td data-label="Status">@(Html.Raw(p.EvaluationParticipantStatusDecoration)) @p.EvaluationParticipantStatusName</td>
+                        <td data-label="Actions">
+                            <a asp-action="LaunchEvaluation" asp-controller="Participant" asp-route-evaluationRateeId="@p.EvaluationRateeId" asp-route-participantId="@p.Rater" class="btn btn-primary btn-sm">
+                                <i class="bi bi-play"></i> Launch
+                            </a>
+                            <a asp-action="OptOutEvaluation" asp-controller="Participant" asp-route-evaluationId="@p.EvaluationId" class="btn btn-outline-secondary btn-sm" data-confirm="Opt out of this evaluation? You may lose access to submit feedback.">
+                                <i class="bi bi-x-circle"></i> Opt-out
+                            </a>
+                        </td>
+                    }
+                    else
+                    {
+                        <td data-label="Status">@(Html.Raw(p.EvaluationParticipantStatusDecoration)) @p.EvaluationParticipantStatusName</td>
+                        <td data-label="Actions"> </td>
+                    }
+                    </tr>
                 }
-                else 
-                {
-                    <td>@(Html.Raw(p.EvaluationParticipantStatusDecoration)) @p.EvaluationParticipantStatusName</td>
-                    <td> </td>
-                }
-                </tr>
+                </tbody>
+            </table>
+        </div>
     }
-            </tbody>
-        </table>
-    </div>
 
     <div class="">
         <h5>Confidentiality Statement:</h5>
@@ -95,22 +108,18 @@
     </div>
 
 @section Scripts {
-    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/2.0.0/js/dataTables.bootstrap5.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $('#EvaluationsTable').DataTable({
-                responsive: true,
-                pageLength: 25,
-                order: [[2, 'asc']],
-                columnDefs: [
-                    { targets: -1, orderable: false }
-                ],
-                language: {
-                    search: "_INPUT_",
-                    searchPlaceholder: "Search evaluations..."
-                }
-            });
-        });
-    </script>
+    @if (hasEvaluations && useDataTable)
+    {
+        <script src="/vendor/datatables/dataTables.min.js"></script>
+        <script src="/vendor/datatables/dataTables.bootstrap5.min.js"></script>
+        @await Html.PartialAsync("_DataTableInit", new ViewDataDictionary(ViewData)
+        {
+            ["Selector"] = "#EvaluationsTable",
+            ["PageLength"] = "25",
+            ["SaveState"] = "false",
+            ["OrderJs"] = "[[2, 'asc']]",
+            ["ColumnDefsJs"] = "[{ targets: -1, orderable: false }]",
+            ["SearchPlaceholder"] = "Search evaluations..."
+        })
+    }
 }

@@ -45,6 +45,30 @@
             }
             return string.Empty;
         }
+
+        string GetPeopleTabActiveClass(string expectedTab)
+        {
+            var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+            var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+            var currentTab = ViewContext.HttpContext.Request.Query["tab"].ToString();
+
+            if (!string.Equals(currentController, "Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Empty;
+            }
+
+            if (!string.Equals(currentAction, "People", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(currentTab))
+            {
+                currentTab = "participants";
+            }
+
+            return string.Equals(currentTab, expectedTab, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty;
+        }
     }
 
 }
@@ -61,13 +85,8 @@
     @if (User.IsInRole("Admin"))
     {
                 <li class="nav-item">
-                    <a class="nav-link text-white @GetActiveClass("Admin", "ViewParticipants")" id="participants" asp-controller="Admin" asp-action="ViewParticipants" title="Participants">
-                        <i class="bi bi-person me-2"></i> Participants
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link text-white @GetActiveClass("Admin", "ViewRatees")" id="ratees" asp-controller="Admin" asp-action="ViewRatees" title="Ratees">
-                        <i class="bi bi-person me-2"></i> Ratees
+                    <a class="nav-link text-white @(GetPeopleTabActiveClass("participants") == "active" || GetPeopleTabActiveClass("ratees") == "active" ? "active" : "")" id="people" asp-controller="Admin" asp-action="People" title="People">
+                        <i class="bi bi-people me-2"></i> People
                     </a>
                 </li>
                 <li class="nav-item">

@@ -4,6 +4,7 @@
 
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -18,6 +19,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using reviews.Models;
+using reviews.Services;
 
 namespace reviews.Areas.Identity.Pages.Account
 {
@@ -29,6 +31,9 @@ namespace reviews.Areas.Identity.Pages.Account
         private readonly IUserStore<ApplicationUser> _userStore;
         private readonly IUserEmailStore<ApplicationUser> _emailStore;
         private readonly IEmailSender _emailSender;
+        private readonly IUserRoleService _userRoleService;
+        private readonly ISessionInitializationService _sessionInitializationService;
+        private readonly IClientDomainAccessService _clientDomainAccessService;
         private readonly ILogger<ExternalLoginModel> _logger;
 
         public ExternalLoginModel(
@@ -36,7 +41,10 @@ namespace reviews.Areas.Identity.Pages.Account
             UserManager<ApplicationUser> userManager,
             IUserStore<ApplicationUser> userStore,
             ILogger<ExternalLoginModel> logger,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            IUserRoleService userRoleService,
+            ISessionInitializationService sessionInitializationService,
+            IClientDomainAccessService clientDomainAccessService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
@@ -44,6 +52,9 @@ namespace reviews.Areas.Identity.Pages.Account
             _emailStore = GetEmailStore();
             _logger = logger;
             _emailSender = emailSender;
+            _userRoleService = userRoleService;
+            _sessionInitializationService = sessionInitializationService;
+            _clientDomainAccessService = clientDomainAccessService;
         }
 
         /// <summary>
@@ -125,17 +136,69 @@ namespace reviews.Areas.Identity.Pages.Account
             }
             else
             {
-                // If the user does not have an account, then ask the user to create an account.
-                ReturnUrl = returnUrl;
-                ProviderDisplayName = info.ProviderDisplayName;
-                if (info.Principal.HasClaim(c => c.Type == ClaimTypes.Email))
+                var externalEmail = GetEmailFromExternalPrincipal(info.Principal);
+                if (string.IsNullOrWhiteSpace(externalEmail))
                 {
-                    Input = new InputModel
-                    {
-                        Email = info.Principal.FindFirstValue(ClaimTypes.Email)
-                    };
+                    ErrorMessage = "Unable to determine your email from the external identity provider.";
+                    return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
                 }
-                return Page();
+
+                if (!await _clientDomainAccessService.IsEmailDomainAllowedAsync(externalEmail))
+                {
+                    ErrorMessage = "Your organization domain is not authorized for this application.";
+                    return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
+                }
+
+                var user = await _userManager.FindByEmailAsync(externalEmail);
+                if (user == null)
+                {
+                    user = CreateUser();
+                    await _userStore.SetUserNameAsync(user, externalEmail, CancellationToken.None);
+                    await _emailStore.SetEmailAsync(user, externalEmail, CancellationToken.None);
+                    user.EmailConfirmed = true;
+
+                    var createResult = await _userManager.CreateAsync(user);
+                    if (!createResult.Succeeded)
+                    {
+                        foreach (var error in createResult.Errors)
+                        {
+                            ModelState.AddModelError(string.Empty, error.Description);
+                        }
+                        ReturnUrl = returnUrl;
+                        ProviderDisplayName = info.ProviderDisplayName;
+                        Input = new InputModel { Email = externalEmail };
+                        return Page();
+                    }
+                }
+
+                var existingLogins = await _userManager.GetLoginsAsync(user);
+                var hasLogin = existingLogins.Any(l => l.LoginProvider == info.LoginProvider && l.ProviderKey == info.ProviderKey);
+                if (!hasLogin)
+                {
+                    var addLoginResult = await _userManager.AddLoginAsync(user, info);
+                    if (!addLoginResult.Succeeded)
+                    {
+                        foreach (var error in addLoginResult.Errors)
+                        {
+                            ModelState.AddModelError(string.Empty, error.Description);
+                        }
+                        ReturnUrl = returnUrl;
+                        ProviderDisplayName = info.ProviderDisplayName;
+                        Input = new InputModel { Email = externalEmail };
+                        return Page();
+                    }
+                }
+
+                // Keep participant role/id aligned if this email is in Participants.
+                await _userRoleService.AssignParticipantRoleAsync(user, externalEmail);
+                var participant = await _sessionInitializationService.GetParticipantByEmailAsync(externalEmail);
+                if (participant != null)
+                {
+                    await _userRoleService.UpdateUserParticipantIdAsync(user, participant.ParticipantId);
+                }
+
+                await _signInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);
+                return LocalRedirect(returnUrl);
             }
         }
 
@@ -196,6 +259,13 @@ namespace reviews.Areas.Identity.Pages.Account
             ProviderDisplayName = info.ProviderDisplayName;
             ReturnUrl = returnUrl;
             return Page();
+        }
+
+        private static string GetEmailFromExternalPrincipal(ClaimsPrincipal principal)
+        {
+            return principal.FindFirstValue(ClaimTypes.Email)
+                ?? principal.FindFirstValue("preferred_username")
+                ?? principal.FindFirstValue("upn");
         }
 
         private ApplicationUser CreateUser()

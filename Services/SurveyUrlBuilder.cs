@@ -28,12 +28,9 @@ public class SurveyUrlBuilder : ISurveyUrlBuilder
             siteUrl += "/";
         }
 
-        var surveyUrl = $"{siteUrl}{evaluation.EvaluationFolder}?P1=EL0&" +
-                       $"Q0001={evaluation.EvaluationParticipantSurveyPassword}&" +
-                       $"Q0002={evaluation.RaterNameFirst}+{evaluation.RaterNameLast}&" +
-                       $"Q0003={evaluation.ParticipantNameFirst}+{evaluation.ParticipantNameLast}&" +
-                       $"Q0004={evaluation.ParticipantRoleId}&" +
-                       $"Q0005={evaluation.EvaluationName}";
+        // New SurveyJS route format: /survey/{password}
+        // The password identifies the participant assignment; all context is resolved server-side
+        var surveyUrl = $"{siteUrl}survey/{evaluation.EvaluationParticipantSurveyPassword}";
 
         return surveyUrl;
     }

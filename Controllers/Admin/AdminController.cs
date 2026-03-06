@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -60,17 +59,55 @@ public class AdminController : Controller
     }
 
     [Authorize(Roles = RoleNames.Admin)]
-    public async Task<IActionResult> ViewParticipants()
+    public async Task<IActionResult> People(string? tab = null)
     {
-        var participants = await _participantService.GetParticipantsByClientAsync(LocalClientId);
-        return View(participants);
+        var model = await BuildPeopleViewModelAsync();
+        return View("ViewPeople", model);
     }
 
     [Authorize(Roles = RoleNames.Admin)]
-    public async Task<IActionResult> ViewRatees()
+    public IActionResult ViewParticipants(string? tab = null)
     {
-        var ratees = await _evaluationService.GetRateesByClientAsync(LocalClientId);
-        return View(ratees);
+        return RedirectToAction(nameof(People));
+    }
+
+    // Backward-compatible route for legacy links/bookmarks.
+    [HttpGet("/admin/addparticipant")]
+    [Authorize(Roles = RoleNames.Admin)]
+    public IActionResult AddParticipant()
+    {
+        return RedirectToAction(nameof(People), new { tab = "participants" });
+    }
+
+    [Authorize(Roles = RoleNames.Admin)]
+    public IActionResult ViewRatees(string? tab = null)
+    {
+        return RedirectToAction(nameof(People));
+    }
+
+    private async Task<AdminPeopleViewModel> BuildPeopleViewModelAsync()
+    {
+        var people = await _participantService.GetAdminPeopleByClientAsync(LocalClientId);
+
+        return new AdminPeopleViewModel
+        {
+            People = people
+        };
+    }
+
+    private static string? NormalizePeopleTab(string? tab)
+    {
+        if (string.Equals(tab, "participants", StringComparison.OrdinalIgnoreCase))
+        {
+            return "participants";
+        }
+
+        if (string.Equals(tab, "ratees", StringComparison.OrdinalIgnoreCase))
+        {
+            return "ratees";
+        }
+
+        return null;
     }
 
     [Authorize(Roles = RoleNames.Admin)]
@@ -85,6 +122,47 @@ public class AdminController : Controller
     {
         var participantIds = new List<Guid> { participantId };
         return RedirectToAction("ProcessReminders", new { participantIds });
+    }
+
+    [HttpGet]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> RemindPersonFromPeople(Guid participantId, string returnUrl = "People")
+    {
+        if (participantId == Guid.Empty)
+        {
+            TempData["PeopleError"] = ErrorMessages.InvalidParticipantId;
+            return RedirectToListRoute(returnUrl, "participants");
+        }
+
+        var success = await _invitationService.ProcessRemindersAsync(
+            new List<Guid> { participantId },
+            LocalClientId,
+            LocalEmail);
+
+        TempData[success ? "PeopleSuccess" : "PeopleError"] =
+            success ? "Reminder sent." : "Failed to process reminder.";
+
+        return RedirectToListRoute(returnUrl, "participants");
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemindRateeAjax(Guid participantId)
+    {
+        if (participantId == Guid.Empty)
+        {
+            return BadRequest(ErrorMessages.InvalidParticipantId);
+        }
+
+        var participantIds = new List<Guid> { participantId };
+        var success = await _invitationService.ProcessRemindersAsync(participantIds, LocalClientId, LocalEmail);
+        if (!success)
+        {
+            return BadRequest("Failed to process reminder.");
+        }
+
+        return Ok(new { success = true, message = "Reminder sent." });
     }
 
     [Authorize(Roles = RoleNames.Admin)]
@@ -114,7 +192,7 @@ public class AdminController : Controller
 
     [HttpGet]
     [Authorize(Roles = RoleNames.Admin)]
-    public async Task<IActionResult> DumpParticipant(Guid participantId, string returnUrl)
+    public async Task<IActionResult> DumpParticipant(Guid participantId, string returnUrl, string? returnTab = null)
     {
         var viewModel = await _participantService.GetParticipantDumpAsync(participantId);
 
@@ -124,6 +202,7 @@ public class AdminController : Controller
         }
         
         ViewBag.ReturnUrl = returnUrl;
+        ViewBag.ReturnTab = NormalizePeopleTab(returnTab) ?? "participants";
         return View(viewModel);
     }
 
@@ -171,7 +250,7 @@ public class AdminController : Controller
 
     [HttpGet]
     [Authorize(Roles = RoleNames.Admin)]
-    public async Task<IActionResult> EditParticipant(Guid participantId, string returnUrl)
+    public async Task<IActionResult> EditParticipant(Guid participantId, string returnUrl, string? returnTab = null)
     {
         var viewModel = await _participantService.GetParticipantDetailsAsync(participantId);
 
@@ -181,16 +260,49 @@ public class AdminController : Controller
         }
         
         ViewBag.ReturnUrl = returnUrl;
+        ViewBag.ReturnTab = NormalizePeopleTab(returnTab) ?? "participants";
         return View(viewModel);
     }
 
     [HttpPost]
     [Authorize(Roles = RoleNames.Admin)]
-    public async Task<IActionResult> SaveParticipant(Participant participant, string returnUrl)
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MoveParticipantToEvaluationPhase(
+        Guid participantId,
+        Guid fromEvaluationId,
+        Guid toEvaluationId,
+        string returnUrl,
+        string? returnTab = null)
+    {
+        var (success, message) = await _participantService.MoveRateeToActiveEvaluationAsync(
+            participantId,
+            fromEvaluationId,
+            toEvaluationId,
+            LocalClientId);
+
+        TempData[success ? "EditParticipantSuccess" : "EditParticipantError"] = message;
+        if (success)
+        {
+            var fromEval = await _evaluationService.GetEvaluationDetailsAsync(fromEvaluationId);
+            var toEval = await _evaluationService.GetEvaluationDetailsAsync(toEvaluationId);
+            var fromName = fromEval?.EvaluationName ?? fromEvaluationId.ToString();
+            var toName = toEval?.EvaluationName ?? toEvaluationId.ToString();
+            TempData["EditParticipantAudit"] =
+                $"Moved ratee from \"{fromName}\" to \"{toName}\" by {LocalEmail} on {DateTime.Now:MMMM d, yyyy h:mm tt}.";
+        }
+
+        return RedirectToAction(
+            nameof(EditParticipant),
+            new { participantId, returnUrl, returnTab });
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> SaveParticipant(Models.Participant participant, string returnUrl, string? returnTab = null)
     {
         if (!ModelState.IsValid)
         {
-            return RedirectToAction(returnUrl);
+            return RedirectToListRoute(returnUrl, returnTab);
         }
 
         var success = await _participantService.SaveParticipantAsync(participant);
@@ -199,17 +311,23 @@ public class AdminController : Controller
             ModelState.AddModelError("", ErrorMessages.FailedToSaveParticipant);
         }
 
-        return RedirectToAction(returnUrl);
+        return RedirectToListRoute(returnUrl, returnTab);
     }
 
     [HttpGet]
     [Authorize(Roles = RoleNames.Admin)]
-    public async Task<IActionResult> AddParticipantToEvaluation(Guid participantId, string returnUrl)
+    public async Task<IActionResult> AddParticipantToEvaluation(Guid participantId, string returnUrl, string? returnTab = null)
     {
+        if (LocalClientId == Guid.Empty)
+        {
+            _logger.LogWarning("Session unavailable in AddParticipantToEvaluation.");
+            return RedirectToAction(nameof(People), new { tab = "participants" });
+        }
+
         if (participantId == Guid.Empty)
         {
             ModelState.AddModelError("", ErrorMessages.InvalidParticipantId);
-            return RedirectToAction(returnUrl);
+            return RedirectToAction(nameof(People), new { tab = "participants" });
         }
 
         var success = await _participantService.AddParticipantToEvaluationAsync(participantId, LocalClientId);
@@ -217,15 +335,29 @@ public class AdminController : Controller
         if (!success)
         {
             ModelState.AddModelError("", "An error occurred while adding the participant to the evaluation.");
-            return RedirectToAction(ActionNames.Error);
+            return RedirectToAction(nameof(People), new { tab = "participants" });
         }
 
-        return returnUrl != null ? RedirectToAction(returnUrl) : RedirectToAction("ViewParticipants");
+        var activeEvaluationId = (await _evaluationService.GetEvaluationsByClientAsync(LocalClientId))
+            .Where(e => e.EvaluationActive)
+            .OrderByDescending(e => e.EvaluationOpenDate ?? DateTime.MinValue)
+            .Select(e => e.EvaluationId)
+            .FirstOrDefault();
+
+        if (activeEvaluationId != Guid.Empty)
+        {
+            return RedirectToAction(
+                "ViewRaters",
+                "Participant",
+                new { evaluationId = activeEvaluationId, participantID = participantId });
+        }
+
+        return RedirectToListRoute(returnUrl, returnTab);
     }
 
     [HttpGet]
     [Authorize(Roles = RoleNames.Admin)]
-    public async Task<IActionResult> ToggleParticipant(Guid participantId, string returnUrl)
+    public async Task<IActionResult> ToggleParticipant(Guid participantId, string returnUrl, string? returnTab = null)
     {
         var success = await _participantService.ToggleParticipantStatusAsync(participantId);
         
@@ -234,12 +366,38 @@ public class AdminController : Controller
             ModelState.AddModelError("", "An error occurred while toggling the participant.");
         }
 
-        return RedirectToAction(returnUrl);
+        return RedirectToListRoute(returnUrl, returnTab);
+    }
+
+    private IActionResult RedirectToListRoute(string? returnUrl, string? returnTab)
+    {
+        var tab = NormalizePeopleTab(returnTab) ?? "participants";
+        if (string.Equals(returnUrl, nameof(People), StringComparison.OrdinalIgnoreCase))
+        {
+            return RedirectToAction(nameof(People));
+        }
+
+        if (string.Equals(returnUrl, nameof(ViewRatees), StringComparison.OrdinalIgnoreCase))
+        {
+            return RedirectToAction(nameof(People));
+        }
+
+        if (string.Equals(returnUrl, nameof(ViewParticipants), StringComparison.OrdinalIgnoreCase))
+        {
+            return RedirectToAction(nameof(People));
+        }
+
+        return RedirectToAction(nameof(People));
     }
 
     // GET: ManageIndex
     public IActionResult ManageIndex(string selectedModel = "Evaluations")
     {
+        if (LocalClientId == Guid.Empty)
+        {
+            _logger.LogWarning("Session unavailable in ManageIndex.");
+        }
+
         ViewData["SelectedModel"] = selectedModel;
         return View();
     }
@@ -390,6 +548,30 @@ public class AdminController : Controller
         return RedirectToAction("ProcessInvitations", new { participantIds, evaluationRateeId });
     }
 
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> InviteParticipantAjax(Guid evaluationRateeId, Guid participantId)
+    {
+        if (evaluationRateeId == Guid.Empty || participantId == Guid.Empty)
+        {
+            return BadRequest(ErrorMessages.InvalidParticipantId);
+        }
+
+        var participantTuples = new List<(Guid EvaluationRateeId, Guid ParticipantId)>
+        {
+            (evaluationRateeId, participantId)
+        };
+
+        var success = await _invitationService.ProcessInvitationsAsync(participantTuples, LocalClientId, LocalEmail);
+        if (!success)
+        {
+            return BadRequest(ErrorMessages.FailedToProcessInvitations);
+        }
+
+        return Ok(new { success = true, message = "Invitation sent." });
+    }
+
     [HttpGet]
     [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> ProcessInvitations(List<(Guid EvaluationRateeId, Guid ParticipantId)>? participantTuples)
@@ -438,6 +620,20 @@ public class AdminController : Controller
         return RedirectToAction(ActionNames.EmailQueueDashboard);
     }
 
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RetryEmailAjax(int id)
+    {
+        var success = await _emailTemplateService.RetryEmailAsync(id);
+        if (!success)
+        {
+            return BadRequest(ErrorMessages.EmailNotFoundOrSent);
+        }
+
+        return Ok(new { success = true, message = "Email retry queued." });
+    }
+
     [HttpGet]
     [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> CancelEmail(int id)
@@ -449,6 +645,20 @@ public class AdminController : Controller
         }
 
         return RedirectToAction(ActionNames.EmailQueueDashboard);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelEmailAjax(int id)
+    {
+        var success = await _emailTemplateService.CancelEmailAsync(id);
+        if (!success)
+        {
+            return BadRequest(ErrorMessages.EmailNotFoundOrSent);
+        }
+
+        return Ok(new { success = true, message = "Email cancelled." });
     }
 
     [HttpGet]

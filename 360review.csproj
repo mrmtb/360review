@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.*" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.*" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.*">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -29,6 +30,15 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <!-- Exclude unused assets from publish -->
+  <ItemGroup>
+    <Content Remove="wwwroot\lib\bootstrap\**\*.svg" />
+    <Content Remove="wwwroot\**\*.map" />
+    <Content Remove="wwwroot\lib\**\*.md" />
+    <Content Remove="wwwroot\lib\**\LICENSE*" />
+    <Content Remove="wwwroot\lib\**\README*" />
   </ItemGroup>
 
 </Project>

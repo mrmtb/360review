@@ -14,8 +14,8 @@
 .vscode/
 
 # Migration-related files
-Controllers/Migration/
-Views/Migration/
+#Controllers/Migration/
+#Views/Migration/
 Migrations/SQL
 360reviews.sql
 
@@ -62,6 +62,7 @@ artifacts/
 # ASP.NET Core
 appsettings.json
 appsettings.*.json
+App_Data/
 
 # IIS
 .vs/

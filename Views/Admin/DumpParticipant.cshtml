@@ -64,18 +64,9 @@
 @RenderProperties(Model)
 @if (!string.IsNullOrEmpty(ViewBag.ReturnUrl))
 {
-    <a href="@ViewBag.ReturnUrl" class="btn btn-primary">Return to Previous Page</a>
+    <a asp-action="@ViewBag.ReturnUrl" asp-route-tab="@ViewBag.ReturnTab" class="btn btn-primary">Return to Previous Page</a>
 }
 
 @section Scripts {
-    <script>
-        $(document).on('click', '.toggle-table', function (e) {
-            e.preventDefault();
-            var target = $(this).data('target');
-            var $container = $('#table-' + target);
-            $container.toggle();
-            var $icon = $(this).find('b');
-            $icon.text($container.is(':visible') ? '[-]' : '[+]');
-        });
-    </script>
+    <script src="/js/pages/admin-dump-participant.js" asp-append-version="true"></script>
 }

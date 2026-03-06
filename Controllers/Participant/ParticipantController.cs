@@ -13,17 +13,14 @@ public class ParticipantController : Controller
     private readonly ISurveyUrlBuilder _surveyUrlBuilder;
     private readonly ISurveyCompletionService _surveyCompletionService;
     private readonly IReviewSessionService _sessionService;
+    private readonly ISessionInitializationService _sessionInitializationService;
     private readonly ILogger<ParticipantController> _logger;
 
-    private Guid LocalClientId { get; set; } = Guid.Empty;
-    private string LocalClientName { get; set; } = "";
-    private Guid LocalUserId { get; set; }
-    private Guid LocalParticipantId { get; set; }
-    private string LocalEmail { get; set; } = "";
-    private string LocalRole { get; set; } = "";
-    private string LocalClientLogoLocation { get; set; } = "";
-    private Guid LocalDefaultEvaluationId { get; set; } = Guid.Empty;
-    private int LocalOpenRatings { get; set; } = -1;
+    private SessionData SessionData => _sessionService.GetSessionData();
+    private Guid LocalClientId => SessionData.ClientId;
+    private Guid LocalParticipantId => SessionData.ParticipantId;
+    private string LocalEmail => SessionData.Email ?? string.Empty;
+    private string LocalRole => SessionData.Role ?? string.Empty;
 
     public ParticipantController(
         IParticipantService participantService,
@@ -31,6 +28,7 @@ public class ParticipantController : Controller
         ISurveyUrlBuilder surveyUrlBuilder,
         ISurveyCompletionService surveyCompletionService,
         IReviewSessionService sessionService,
+        ISessionInitializationService sessionInitializationService,
         ILogger<ParticipantController> logger)
     {
         _participantService = participantService;
@@ -38,22 +36,8 @@ public class ParticipantController : Controller
         _surveyUrlBuilder = surveyUrlBuilder;
         _surveyCompletionService = surveyCompletionService;
         _sessionService = sessionService;
+        _sessionInitializationService = sessionInitializationService;
         _logger = logger;
-
-        var sessionData = _sessionService.GetSessionData();
-
-        if (sessionData != null)
-        {
-            LocalUserId = sessionData.UserId;
-            LocalParticipantId = sessionData.ParticipantId;
-            LocalEmail = sessionData.Email;
-            LocalRole = sessionData.Role;
-            LocalClientId = sessionData.ClientId;
-            LocalClientName = sessionData.ClientName;
-            LocalClientLogoLocation = sessionData.ClientLogoLocation;
-            LocalDefaultEvaluationId = sessionData.DefaultEvaluationId;
-            LocalOpenRatings = sessionData.OpenRatingCount;
-        }
     }
 
     [Authorize(Roles = RoleNames.AdminOrParticipant)]
@@ -61,6 +45,12 @@ public class ParticipantController : Controller
     {
         try
         {
+            if (LocalClientId == Guid.Empty)
+            {
+                _logger.LogWarning("Session unavailable in ParticipantIndex.");
+                return View(new List<vwEvaluationsToComplete>());
+            }
+
             Guid targetParticipantId = LocalRole == RoleNames.Admin && ParticipantId.HasValue 
                 ? ParticipantId.Value 
                 : LocalParticipantId;
@@ -157,6 +147,7 @@ public class ParticipantController : Controller
 
     [HttpPost]
     [Authorize(Roles = RoleNames.AdminOrParticipant)]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddNewRater(
         Guid evaluationRateeId, 
         string firstName, 
@@ -164,6 +155,10 @@ public class ParticipantController : Controller
         string email, 
         string rolename)
     {
+        _logger.LogInformation(
+            "AddNewRater called: EvaluationRateeId={EvaluationRateeId}, FirstName={FirstName}, LastName={LastName}, Email={Email}, Role={Role}",
+            evaluationRateeId, firstName, lastName, email, rolename);
+
         var success = await _participantService.AddNewRaterAsync(
             evaluationRateeId, 
             firstName, 
@@ -172,6 +167,22 @@ public class ParticipantController : Controller
             rolename, 
             LocalClientId);
 
+        _logger.LogInformation("AddNewRaterAsync result: {Success}", success);
+
+        // Check if this is an AJAX request
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+        {
+            if (success)
+            {
+                return Json(new { success = true, message = "Rater added successfully" });
+            }
+            else
+            {
+                return Json(new { success = false, message = ErrorMessages.FailedToAddNewRater });
+            }
+        }
+
+        // Non-AJAX request: use traditional redirect
         if (!success)
         {
             ModelState.AddModelError("", ErrorMessages.FailedToAddNewRater);
@@ -182,13 +193,34 @@ public class ParticipantController : Controller
 
     [HttpPost]
     [Authorize(Roles = RoleNames.AdminOrParticipant)]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddRater(Guid evaluationRateeId, Guid participantId, string rolename)
     {
+        _logger.LogInformation(
+            "AddRater called: EvaluationRateeId={EvaluationRateeId}, ParticipantId={ParticipantId}, Role={Role}",
+            evaluationRateeId, participantId, rolename);
+
         var success = await _participantService.AddExistingRaterAsync(
             evaluationRateeId, 
             participantId, 
             rolename);
 
+        _logger.LogInformation("AddExistingRaterAsync result: {Success}", success);
+
+        // Check if this is an AJAX request
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+        {
+            if (success)
+            {
+                return Json(new { success = true, message = "Rater added successfully" });
+            }
+            else
+            {
+                return Json(new { success = false, message = ErrorMessages.FailedToAddRater });
+            }
+        }
+
+        // Non-AJAX request: use traditional redirect
         if (!success)
         {
             ModelState.AddModelError("", ErrorMessages.FailedToAddRater);
@@ -263,6 +295,15 @@ public class ParticipantController : Controller
                 return BadRequest(ErrorMessages.UnableToProcessSurvey);
             }
 
+            if (User?.Identity?.IsAuthenticated == true && !string.IsNullOrWhiteSpace(LocalEmail))
+            {
+                var refreshedSession = await _sessionInitializationService.InitializeParticipantSessionAsync(LocalEmail);
+                if (refreshedSession != null)
+                {
+                    _sessionService.SetSessionData(refreshedSession);
+                }
+            }
+
             return RedirectToAction("ParticipantIndex", "Participant");
         }
         catch (Exception ex)
@@ -274,6 +315,7 @@ public class ParticipantController : Controller
 
     [HttpPost]
     [Authorize]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteEvaluationParticipant(
         Guid evaluationRateeId, 
         Guid participantId, 
@@ -298,6 +340,7 @@ public class ParticipantController : Controller
 
     [HttpPost]
     [Authorize(Roles = RoleNames.AdminOrParticipant)]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ProcessInvitationsForParticipant(
         bool blnTest, 
         List<(Guid EvaluationRateeId, Guid ParticipantId)> participantTuples)

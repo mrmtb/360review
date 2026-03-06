@@ -1,0 +1,17 @@
+@{
+    var iconClass = ViewData["IconClass"]?.ToString() ?? "bi bi-inbox";
+    var title = ViewData["Title"]?.ToString() ?? "Nothing to show";
+    var message = ViewData["Message"]?.ToString() ?? "There are no records yet.";
+    var actionText = ViewData["ActionText"]?.ToString();
+    var actionUrl = ViewData["ActionUrl"]?.ToString();
+}
+
+<section class="empty-state" role="status" aria-live="polite">
+    <div class="empty-state-icon"><i class="@iconClass" aria-hidden="true"></i></div>
+    <h5 class="empty-state-title mb-2">@title</h5>
+    <p class="empty-state-message mb-0">@message</p>
+    @if (!string.IsNullOrWhiteSpace(actionText) && !string.IsNullOrWhiteSpace(actionUrl))
+    {
+        <a class="btn btn-primary mt-3" href="@actionUrl">@actionText</a>
+    }
+</section>
