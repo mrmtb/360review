@@ -169,7 +169,7 @@ Copy-Item "$($backup.FullName)\*" -Destination $httpdocs -Recurse
 | `DB_HOST` | Database server | `db.yourdomain.com` |
 | `DB_NAME` | Database name | `360review` |
 | `DB_USER` | Database user | `appuser` |
-| `DB_PASSWORD` | Database password | `SecureYOUR_STRONG_PASSWORD` |
+| `DB_PASSWORD` | Database password | `YOUR_STRONG_PASSWORD` |
 | `GH_PAT` | GitHub token (for deployments) | `ghp_xxx...` |
 
 ### Set via PowerShell
@@ -225,7 +225,7 @@ Set-Acl $path $acl
 
 ```powershell
 # Test connection
-$env:PGPASSWORD = "password"
+$env:PGPASSWORD = "YOUR_DB_PASSWORD"
 psql -h db.server.com -U appuser -d 360review -c "SELECT version();"
 
 # Check connection string
@@ -256,7 +256,7 @@ $backupPath = "C:\Plesk\Backups\manual-$timestamp"
 Copy-Item "C:\Inetpub\vhosts\$domain\httpdocs" -Destination $backupPath -Recurse
 
 # Backup database
-$env:PGPASSWORD = "password"
+$env:PGPASSWORD = "YOUR_DB_PASSWORD"
 pg_dump -h localhost -U appuser -d 360review -F c -f "$backupPath\database.backup"
 ```
 
@@ -273,7 +273,7 @@ Remove-Item "C:\Inetpub\vhosts\$domain\httpdocs\*" -Recurse -Force
 Copy-Item "$backupPath\*" -Destination "C:\Inetpub\vhosts\$domain\httpdocs" -Recurse
 
 # Restore database
-$env:PGPASSWORD = "password"
+$env:PGPASSWORD = "YOUR_DB_PASSWORD"
 pg_restore -h localhost -U appuser -d 360review -c "$backupPath\database.backup"
 
 # Start app

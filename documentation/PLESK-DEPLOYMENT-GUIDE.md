@@ -527,7 +527,7 @@ Copy-Item "C:\Inetpub\vhosts\$domain\httpdocs" `
     -Destination $backupPath -Recurse
 
 # Backup database
-$env:PGPASSWORD = "password"
+$env:PGPASSWORD = "YOUR_DB_PASSWORD"
 pg_dump -h localhost -U appuser -d 360review `
     -F c -f "$backupPath\database.backup"
 ```

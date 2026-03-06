@@ -17,7 +17,6 @@ public interface ISurveyAssignmentResolver
 }
 
 public record SurveyAssignmentContext(
-    Guid EvaluationParticipantId,
     Guid EvaluationRateeId,
     Guid RaterParticipantId,
     int? ParticipantRoleId,
@@ -56,7 +55,6 @@ public class SurveyAssignmentResolver : ISurveyAssignmentResolver
                                 where v.EvaluationParticipantSurveyPassword == password
                                 select new
                                 {
-                                    EvaluationParticipantId = v.EvaluationRateeId,
                                     v.EvaluationRateeId,
                                     RaterParticipantId = v.Rater,  // RATER (person completing survey)
                                     RateeParticipantId = v.ParticipantId,  // RATEE (person being rated)
@@ -84,7 +82,6 @@ public class SurveyAssignmentResolver : ISurveyAssignmentResolver
             assignment.EvaluationRateeId, assignment.RaterParticipantId, assignment.RateeParticipantId, assignment.ParticipantRoleId, assignment.RoleName, assignment.IsComplete, assignment.CompletedAt, assignment.RaterDisplayName, assignment.RateeDisplayName);
 
         return new SurveyAssignmentContext(
-            EvaluationParticipantId: assignment.EvaluationParticipantId,
             EvaluationRateeId: assignment.EvaluationRateeId,
             RaterParticipantId: assignment.RaterParticipantId,
             ParticipantRoleId: assignment.ParticipantRoleId,
@@ -98,4 +95,3 @@ public class SurveyAssignmentResolver : ISurveyAssignmentResolver
             EvaluationDueDate: assignment.EvaluationDueDate);
     }
 }
-

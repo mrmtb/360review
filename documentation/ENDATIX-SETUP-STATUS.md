@@ -172,7 +172,7 @@ http://localhost:5000/survey/{password}
 ### Database Details
 - Database: `endatix`
 - User: `mblackmon`
-- Password: `YOUR_STRONG_PASSWORD`
+- Password: `YOUR_DB_PASSWORD` (store in environment variables or a secret store; do not commit real credentials)
 - Port: 5432
 - Schemas: `endatix`, `identity`
 

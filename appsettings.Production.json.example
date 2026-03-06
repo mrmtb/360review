@@ -36,6 +36,9 @@
     "DefaultTemplateId": "REPLACE_WITH_ACTUAL_TEMPLATE_ID_FROM_ENDATIX",
     "TemplatePath": "survey3.json"
   },
+  "Database": {
+    "ApplyMigrationsOnStartup": false
+  },
   "EnableLogging": true,
   "Migration": {
     "Enabled": false

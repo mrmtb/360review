@@ -109,7 +109,7 @@ jobs:
         $sessionOptions = New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck
         
         # Create remote session using HTTPS (port 5986)
-        $session = New-PSSession -ComputerName "rdp.behavioralsurveys.com" -Credential $credential -UseSSL -SessionOption $sessionOptions -Port 5986
+        $session = New-PSSession -ComputerName "${{ secrets.DEPLOY_SERVER }}" -Credential $credential -UseSSL -SessionOption $sessionOptions -Port 5986
         
         # Copy artifact to server
         Copy-Item -Path "./360review-${{ github.sha }}.zip" -Destination "C:\temp\" -ToSession $session
@@ -262,33 +262,136 @@ jobs:
         $securePassword = ConvertTo-SecureString "${{ secrets.DEPLOY_PASSWORD }}" -AsPlainText -Force
         $credential = New-Object System.Management.Automation.PSCredential("${{ secrets.DEPLOY_USER }}", $securePassword)
         
-        # Create remote session
-        $session = New-PSSession -ComputerName ${{ secrets.DEPLOY_SERVER }} -Credential $credential
+        # Configure session options for HTTPS with valid SSL cert
+        $sessionOptions = New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck
+        
+        # Create remote session using HTTPS (port 5986)
+        $session = New-PSSession -ComputerName "${{ secrets.DEPLOY_SERVER }}" -Credential $credential -UseSSL -SessionOption $sessionOptions -Port 5986
         
         # Copy artifact to server
         Copy-Item -Path "./360review-${{ github.sha }}.zip" -Destination "C:\temp\" -ToSession $session
         
-        # Execute deployment script
+        # Execute deployment script directly without downloading artifact again
         Invoke-Command -Session $session -ScriptBlock {
-          param($BuildNumber, $Domain, $DbHost, $DbName, $DbUser, $DbPassword)
+          param($ZipFile, $Domain, $DbHost, $DbName, $DbUser, $DbPassword, $BackupRootPath, $PleskVhostsPath)
           
-          # Set environment variables for deployment
+          $ErrorActionPreference = "Stop"
+          Import-Module WebAdministration -ErrorAction SilentlyContinue
+          
+          # Set environment variables
           $env:DB_HOST = $DbHost
           $env:DB_NAME = $DbName
           $env:DB_USER = $DbUser
           $env:DB_PASSWORD = $DbPassword
-          $env:GH_PAT = "${{ secrets.GITHUB_TOKEN }}"
           
-          # Run Plesk deployment script
-          cd C:\Plesk\Scripts
-          .\Deploy-Production-Plesk.ps1 -BuildNumber $BuildNumber -Domain $Domain
+          $SitePath = Join-Path $PleskVhostsPath "$Domain\httpdocs"
+          $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+          $BackupPath = Join-Path $BackupRootPath $Domain
+          $deploymentLog = Join-Path $BackupPath "deployment-$timestamp.log"
+          $backupDir = $null
+          
+          # Function to log messages
+          function Write-Log {
+            param([string]$Message)
+            $logMessage = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+            Write-Host $logMessage
+            if (-not (Test-Path (Split-Path $deploymentLog))) {
+              New-Item -ItemType Directory -Path (Split-Path $deploymentLog) -Force | Out-Null
+            }
+            Add-Content -Path $deploymentLog -Value $logMessage
+          }
+          
+          try {
+            Write-Log "Starting deployment for $Domain to $SitePath"
+            
+            # Stop app pool
+            Write-Log "Stopping application pool: $Domain"
+            if (Test-Path "IIS:\AppPools\$Domain") {
+              Stop-WebAppPool -Name $Domain -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 5
+            }
+            
+            # Backup current deployment and preserve config files
+            if (Test-Path $SitePath) {
+              $backupDir = Join-Path $BackupPath "backup-$timestamp"
+              Write-Log "Creating backup at: $backupDir"
+              if (-not (Test-Path $BackupPath)) {
+                New-Item -ItemType Directory -Path $BackupPath -Force | Out-Null
+              }
+              Copy-Item -Path $SitePath -Destination $backupDir -Recurse -Force
+              
+              # Preserve existing appsettings.json
+              $existingAppSettings = Join-Path $SitePath "appsettings.json"
+              if (Test-Path $existingAppSettings) {
+                Write-Log "Preserving existing appsettings.json"
+                Copy-Item -Path $existingAppSettings -Destination "$env:TEMP\appsettings.json.preserve" -Force
+              }
+            }
+            
+            # Clear existing files (except protected directories)
+            Write-Log "Clearing existing deployment files..."
+            $excludeDirs = @("logs", "App_Data", "plesk-stat", "statistics", "error_docs", "_private")
+            Get-ChildItem -Path $SitePath -ErrorAction SilentlyContinue | Where-Object {
+              $_.Name -notin $excludeDirs
+            } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            
+            # Extract new deployment
+            Write-Log "Extracting deployment from $ZipFile..."
+            Expand-Archive -Path $ZipFile -DestinationPath $SitePath -Force
+            
+            # Restore preserved appsettings.json
+            $preservedAppSettings = "$env:TEMP\appsettings.json.preserve"
+            if (Test-Path $preservedAppSettings) {
+              Write-Log "Restoring preserved appsettings.json"
+              Copy-Item -Path $preservedAppSettings -Destination (Join-Path $SitePath "appsettings.json") -Force
+              Remove-Item -Path $preservedAppSettings -Force
+            }
+            
+            # Set permissions
+            Write-Log "Setting permissions..."
+            $acl = Get-Acl $SitePath
+            $iisRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+              "IIS_IUSRS", "Modify", "ContainerInherit,ObjectInherit", "None", "Allow"
+            )
+            $acl.SetAccessRule($iisRule)
+            Set-Acl $SitePath $acl
+            
+            # Start app pool (migrations will run automatically on app startup)
+            Write-Log "Starting application pool: $Domain"
+            if (Test-Path "IIS:\AppPools\$Domain") {
+              Start-WebAppPool -Name $Domain -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 5
+            }
+            
+            Write-Log "Deployment completed successfully"
+            Write-Log "Backup location: $backupDir"
+            Write-Log "Deployment log: $deploymentLog"
+          } catch {
+            Write-Log "Deployment failed: $_"
+            
+            # Rollback if we have a backup
+            if ($backupDir -and (Test-Path $backupDir)) {
+              Write-Log "Rolling back to backup..."
+              Remove-Item "$SitePath\*" -Recurse -Force -ErrorAction SilentlyContinue
+              Copy-Item "$backupDir\*" -Destination $SitePath -Recurse -Force
+            }
+            
+            # Try to start app pool anyway
+            if (Test-Path "IIS:\AppPools\$Domain") {
+              Start-WebAppPool -Name $Domain -ErrorAction SilentlyContinue
+            }
+            
+            throw
+          }
         } -ArgumentList @(
-          "${{ github.sha }}",
+          "C:\temp\360review-${{ github.sha }}.zip",
           "behavioralsurveys.com",
           "${{ secrets.DB_HOST }}",
           "${{ secrets.DB_NAME }}",
           "${{ secrets.DB_USER }}",
-          "${{ secrets.DB_PASSWORD }}"
+          "${{ secrets.DB_PASSWORD }}",
+          "C:\Plesk\Backups",
+          "C:\Inetpub\vhosts"
         )
         
         # Cleanup
