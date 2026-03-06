@@ -13,6 +13,7 @@ public class ParticipantController : Controller
     private readonly ISurveyUrlBuilder _surveyUrlBuilder;
     private readonly ISurveyCompletionService _surveyCompletionService;
     private readonly IReviewSessionService _sessionService;
+    private readonly ISessionInitializationService _sessionInitializationService;
     private readonly ILogger<ParticipantController> _logger;
 
     private SessionData SessionData => _sessionService.GetSessionData();
@@ -27,6 +28,7 @@ public class ParticipantController : Controller
         ISurveyUrlBuilder surveyUrlBuilder,
         ISurveyCompletionService surveyCompletionService,
         IReviewSessionService sessionService,
+        ISessionInitializationService sessionInitializationService,
         ILogger<ParticipantController> logger)
     {
         _participantService = participantService;
@@ -34,6 +36,7 @@ public class ParticipantController : Controller
         _surveyUrlBuilder = surveyUrlBuilder;
         _surveyCompletionService = surveyCompletionService;
         _sessionService = sessionService;
+        _sessionInitializationService = sessionInitializationService;
         _logger = logger;
     }
 
@@ -290,6 +293,15 @@ public class ParticipantController : Controller
             if (!success)
             {
                 return BadRequest(ErrorMessages.UnableToProcessSurvey);
+            }
+
+            if (User?.Identity?.IsAuthenticated == true && !string.IsNullOrWhiteSpace(LocalEmail))
+            {
+                var refreshedSession = await _sessionInitializationService.InitializeParticipantSessionAsync(LocalEmail);
+                if (refreshedSession != null)
+                {
+                    _sessionService.SetSessionData(refreshedSession);
+                }
             }
 
             return RedirectToAction("ParticipantIndex", "Participant");

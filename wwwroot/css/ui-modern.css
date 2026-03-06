@@ -180,6 +180,39 @@ body.app-body {
     color: var(--ui-text);
 }
 
+.people-table td:nth-child(3) {
+    min-width: 7.5rem;
+}
+
+.people-table .badge {
+    font-weight: 600;
+}
+
+.admin-edit-table {
+    table-layout: fixed;
+}
+
+.admin-edit-table .col-person {
+    width: 48%;
+}
+
+.admin-edit-table .col-role {
+    width: 18%;
+}
+
+.admin-edit-table .col-last-email {
+    width: 18%;
+}
+
+.admin-edit-table .col-status {
+    width: 16%;
+}
+
+.admin-edit-table td,
+.admin-edit-table th {
+    vertical-align: middle;
+}
+
 .form-control,
 .form-select,
 .btn {

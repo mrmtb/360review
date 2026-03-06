@@ -24,6 +24,7 @@
   "Authentication": {
     "Entra": {
       "Enabled": true,
+      "ShowLoginOption": false,
       "ClientId": "YOUR_ENTRA_APP_CLIENT_ID",
       "ClientSecret": "YOUR_ENTRA_APP_CLIENT_SECRET",
       "TenantId": "common",

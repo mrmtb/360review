@@ -1,8 +1,10 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using reviews.Models;
 using reviews.Services;
 
 namespace reviews.Controllers.Participant;
@@ -17,6 +19,9 @@ public class SurveyController : Controller
     private readonly ISurveyAssignmentResolver _assignmentResolver;
     private readonly ISurveyResponseStore _responseStore;
     private readonly IEvaluationParticipantStatusService _statusService;
+    private readonly IReviewSessionService _sessionService;
+    private readonly ISessionInitializationService _sessionInitializationService;
+    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<SurveyController> _logger;
 
     public SurveyController(
@@ -24,12 +29,18 @@ public class SurveyController : Controller
         ISurveyAssignmentResolver assignmentResolver,
         ISurveyResponseStore responseStore,
         IEvaluationParticipantStatusService statusService,
+        IReviewSessionService sessionService,
+        ISessionInitializationService sessionInitializationService,
+        UserManager<ApplicationUser> userManager,
         ILogger<SurveyController> logger)
     {
         _templateResolver = templateResolver;
         _assignmentResolver = assignmentResolver;
         _responseStore = responseStore;
         _statusService = statusService;
+        _sessionService = sessionService;
+        _sessionInitializationService = sessionInitializationService;
+        _userManager = userManager;
         _logger = logger;
     }
 
@@ -218,6 +229,7 @@ public class SurveyController : Controller
 
             // Update participant status
             await _statusService.MarkCompletedAsync(password, ct);
+            await RefreshParticipantSessionAsync();
 
             _logger.LogInformation("Survey completed for password: {Password}", password);
 
@@ -256,6 +268,27 @@ public class SurveyController : Controller
             assignment.EvaluationActive,
             assignment.EvaluationDueDate
         });
+    }
+
+    private async Task RefreshParticipantSessionAsync()
+    {
+        if (User?.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        var user = await _userManager.GetUserAsync(User);
+        var email = user?.Email;
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return;
+        }
+
+        var refreshedSession = await _sessionInitializationService.InitializeParticipantSessionAsync(email);
+        if (refreshedSession != null)
+        {
+            _sessionService.SetSessionData(refreshedSession);
+        }
     }
 }
 

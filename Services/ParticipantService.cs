@@ -28,6 +28,106 @@ public class ParticipantService : IParticipantService
             .ToListAsync();
     }
 
+    public async Task<List<AdminPersonRow>> GetAdminPeopleByClientAsync(Guid clientId)
+    {
+        var now = DateTime.UtcNow;
+        var terminalStatusIds = new HashSet<int>
+        {
+            EvaluationParticipantStatusIds.Completed,
+            EvaluationParticipantStatusIds.OptOut,
+            EvaluationParticipantStatusIds.Unfamiliar,
+            EvaluationParticipantStatusIds.Deleted
+        };
+
+        var participants = await _db.Participants
+            .AsNoTracking()
+            .Where(p => p.ClientId == clientId)
+            .Select(p => new
+            {
+                p.ParticipantId,
+                p.ParticipantNameFirst,
+                p.ParticipantNameLast,
+                p.ParticipantEmail,
+                p.ParticipantIsActive
+            })
+            .ToListAsync();
+
+        var rateeFlags = await _db.EvaluationRatees
+            .AsNoTracking()
+            .Where(er => er.Participants.ClientId == clientId)
+            .Select(er => new
+            {
+                RateeId = er.ParticipantId,
+                IsActiveCluster =
+                    (er.Evaluations.EvaluationRateeDueDate.HasValue && er.Evaluations.EvaluationRateeDueDate.Value >= now) ||
+                    (er.Evaluations.EvaluationRaterDueDate.HasValue && er.Evaluations.EvaluationRaterDueDate.Value >= now) ||
+                    (er.EvaluationRateeDueDateOverride.HasValue && er.EvaluationRateeDueDateOverride.Value >= now) ||
+                    (er.EvaluationRaterDueDateOverride.HasValue && er.EvaluationRaterDueDateOverride.Value >= now),
+                er.EvaluationRateeDateAdded
+            })
+            .ToListAsync();
+
+        var participantFlags = await _db.EvaluationParticipants
+            .AsNoTracking()
+            .Where(ep => ep.Participants.ClientId == clientId)
+            .Select(ep => new
+            {
+                ep.ParticipantId,
+                StatusId = ep.EvaluationParticipantStatusId ?? 0,
+                ep.EvaluationParticipantDateLastEmailed,
+                IsActiveCluster =
+                    (ep.EvaluationRatee.Evaluations.EvaluationRateeDueDate.HasValue && ep.EvaluationRatee.Evaluations.EvaluationRateeDueDate.Value >= now) ||
+                    (ep.EvaluationRatee.Evaluations.EvaluationRaterDueDate.HasValue && ep.EvaluationRatee.Evaluations.EvaluationRaterDueDate.Value >= now) ||
+                    (ep.EvaluationRatee.EvaluationRateeDueDateOverride.HasValue && ep.EvaluationRatee.EvaluationRateeDueDateOverride.Value >= now) ||
+                    (ep.EvaluationRatee.EvaluationRaterDueDateOverride.HasValue && ep.EvaluationRatee.EvaluationRaterDueDateOverride.Value >= now)
+            })
+            .ToListAsync();
+
+        var activeRateeSet = rateeFlags
+            .Where(x => x.IsActiveCluster)
+            .Select(x => x.RateeId)
+            .ToHashSet();
+
+        var activeParticipantSet = participantFlags
+            .Where(x => x.IsActiveCluster)
+            .Select(x => x.ParticipantId)
+            .ToHashSet();
+
+        var openItemsSet = participantFlags
+            .Where(x => x.IsActiveCluster && !terminalStatusIds.Contains(x.StatusId))
+            .Select(x => x.ParticipantId)
+            .ToHashSet();
+
+        var lastEmailedByParticipant = participantFlags
+            .Where(x => x.IsActiveCluster && x.EvaluationParticipantDateLastEmailed.HasValue)
+            .GroupBy(x => x.ParticipantId)
+            .ToDictionary(g => g.Key, g => g.Max(x => x.EvaluationParticipantDateLastEmailed));
+
+        var rateeDateAddedByParticipant = rateeFlags
+            .Where(x => x.IsActiveCluster && x.EvaluationRateeDateAdded.HasValue)
+            .GroupBy(x => x.RateeId)
+            .ToDictionary(g => g.Key, g => g.Max(x => x.EvaluationRateeDateAdded));
+
+        return participants
+            .Select(p => new AdminPersonRow
+            {
+                ParticipantId = p.ParticipantId,
+                ParticipantNameFirst = p.ParticipantNameFirst,
+                ParticipantNameLast = p.ParticipantNameLast,
+                ParticipantEmail = p.ParticipantEmail,
+                ParticipantIsActive = p.ParticipantIsActive,
+                IsRatee = activeRateeSet.Contains(p.ParticipantId),
+                IsParticipant = activeParticipantSet.Contains(p.ParticipantId),
+                IsInActiveEvaluation = activeRateeSet.Contains(p.ParticipantId) || activeParticipantSet.Contains(p.ParticipantId),
+                HasOpenItems = openItemsSet.Contains(p.ParticipantId),
+                LastEmailedAt = lastEmailedByParticipant.GetValueOrDefault(p.ParticipantId),
+                RateeDateAdded = rateeDateAddedByParticipant.GetValueOrDefault(p.ParticipantId)
+            })
+            .OrderBy(p => p.ParticipantNameLast)
+            .ThenBy(p => p.ParticipantNameFirst)
+            .ToList();
+    }
+
     public async Task<AdminParticipantViewModel?> GetParticipantDetailsAsync(Guid participantId)
     {
         var participant = await _db.Participants
@@ -44,12 +144,19 @@ public class ParticipantService : IParticipantService
             .Where(p => p.ParticipantId == participantId)
             .ToListAsync();
 
+        var activeEvaluations = await _db.Evaluations
+            .AsNoTracking()
+            .Where(e => e.ClientId == participant.ClientId && e.EvaluationActive)
+            .OrderByDescending(e => e.EvaluationOpenDate ?? DateTime.MinValue)
+            .ToListAsync();
+
         return new AdminParticipantViewModel
         {
             Participant = participant,
             Raters = new List<vwRatersByRatee>(),
             Ratees = new List<vwEvaluationsToComplete>(),
-            Evaluations = evaluations
+            Evaluations = evaluations,
+            ActiveEvaluations = activeEvaluations
         };
     }
 
@@ -213,6 +320,74 @@ public class ParticipantService : IParticipantService
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Failed to add participant {ParticipantId} to evaluation", participantId);
             return false;
+        }
+    }
+
+    public async Task<(bool Success, string Message)> MoveRateeToActiveEvaluationAsync(
+        Guid participantId,
+        Guid fromEvaluationId,
+        Guid toEvaluationId,
+        Guid clientId)
+    {
+        if (participantId == Guid.Empty || fromEvaluationId == Guid.Empty || toEvaluationId == Guid.Empty)
+        {
+            return (false, "A valid participant and evaluation selection is required.");
+        }
+
+        if (fromEvaluationId == toEvaluationId)
+        {
+            return (false, "Select a different active evaluation phase.");
+        }
+
+        try
+        {
+            var sourceRatee = await _db.EvaluationRatees
+                .Include(er => er.Evaluations)
+                .FirstOrDefaultAsync(er =>
+                    er.ParticipantId == participantId &&
+                    er.EvaluationId == fromEvaluationId &&
+                    er.Evaluations.ClientId == clientId);
+
+            if (sourceRatee == null)
+            {
+                return (false, "The selected source evaluation record was not found.");
+            }
+
+            var targetEvaluation = await _db.Evaluations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e =>
+                    e.EvaluationId == toEvaluationId &&
+                    e.ClientId == clientId &&
+                    e.EvaluationActive);
+
+            if (targetEvaluation == null)
+            {
+                return (false, "Target evaluation must be active and belong to the current client.");
+            }
+
+            var alreadyInTarget = await _db.EvaluationRatees
+                .AsNoTracking()
+                .AnyAsync(er => er.ParticipantId == participantId && er.EvaluationId == toEvaluationId);
+
+            if (alreadyInTarget)
+            {
+                return (false, "This participant is already a ratee in the selected active evaluation.");
+            }
+
+            sourceRatee.EvaluationId = toEvaluationId;
+            await _db.SaveChangesAsync();
+
+            return (true, "Participant moved to the selected active evaluation phase.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed moving participant {ParticipantId} from evaluation {FromEvaluationId} to {ToEvaluationId}",
+                participantId,
+                fromEvaluationId,
+                toEvaluationId);
+            return (false, "Unable to move participant to the selected evaluation phase.");
         }
     }
 

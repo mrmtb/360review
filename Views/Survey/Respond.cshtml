@@ -80,14 +80,14 @@
         }
         .autosave-indicator {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: calc(var(--app-topbar-offset, 76px) + 10px);
+            right: 12px;
             padding: 8px 16px;
             background: var(--ui-success);
             color: white;
             border-radius: 10px;
             display: none;
-            z-index: 1000;
+            z-index: 2200;
             font-size: 14px;
             opacity: 0.9;
             transition: opacity 0.3s ease, background-color 0.3s ease;

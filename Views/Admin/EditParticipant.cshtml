@@ -2,96 +2,192 @@
 
 @{
     ViewBag.Title = "Edit Participant";
+    var participantId = Model.Participant?.ParticipantId ?? Guid.Empty;
 }
 
-<h4>Edit Participant</h4>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <h4 class="mb-0">Edit Participant</h4>
+    <a asp-action="@ViewBag.ReturnUrl" asp-route-tab="@ViewBag.ReturnTab" class="btn btn-outline-secondary btn-sm">Back</a>
+</div>
 
-<div class="form-group">
-    <label>Evaluations</label>
-    @if (Model.Evaluations != null && Model.Evaluations.Any())
-    {
-        <select class="form-select" id="evaluationSelect" name="SelectedEvaluationId" data-participant-id="@(Model.Participant != null ? Model.Participant.ParticipantId.ToString() : "")" data-raters-url="@Url.Action("GetRatersForEvaluation", "Admin")" data-ratees-url="@Url.Action("GetRateesForEvaluation", "Admin")">
-            @foreach (var item in Model.Evaluations.OrderByDescending(e => e.EvaluationRaterDueDate))
+@if (TempData["EditParticipantSuccess"] is string successMessage)
+{
+    <div class="alert alert-success py-2" role="alert">@successMessage</div>
+}
+@if (TempData["EditParticipantError"] is string errorMessage)
+{
+    <div class="alert alert-danger py-2" role="alert">@errorMessage</div>
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-lg-5">
+                <label for="evaluationSelect" class="form-label fw-semibold">Evaluation Context</label>
+                @if (Model.Evaluations.Any())
+                {
+                    <select class="form-select"
+                            id="evaluationSelect"
+                            name="SelectedEvaluationId"
+                            data-participant-id="@participantId"
+                            data-raters-url="@Url.Action("GetRatersForEvaluation", "Admin")"
+                            data-ratees-url="@Url.Action("GetRateesForEvaluation", "Admin")">
+                        @foreach (var item in Model.Evaluations.OrderByDescending(e => e.EvaluationRaterDueDate))
+                        {
+                            <option value="@item.EvaluationId" data-is-active="@item.EvaluationActive.ToString().ToLowerInvariant()">
+                                @item.EvaluationName (@(item.EvaluationActive ? "Active" : "Inactive"))
+                            </option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <div class="text-muted small">No evaluations found for this ratee.</div>
+                }
+            </div>
+            <div class="col-lg-7">
+                <form asp-action="MoveParticipantToEvaluationPhase" asp-controller="Admin" method="post" class="row g-2" id="movePhaseForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="participantId" value="@participantId" />
+                    <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
+                    <input type="hidden" name="returnTab" value="@ViewBag.ReturnTab" />
+                    <input type="hidden" id="fromEvaluationId" name="fromEvaluationId" />
+                    <div class="col-md-8">
+                        <label for="toEvaluationId" class="form-label fw-semibold">Move Ratee To Active Phase</label>
+                        <select id="toEvaluationId" name="toEvaluationId" class="form-select" required>
+                            <option value="">Select target active evaluation</option>
+                            @foreach (var eval in Model.ActiveEvaluations.OrderByDescending(e => e.EvaluationOpenDate ?? DateTime.MinValue))
+                            {
+                                <option value="@eval.EvaluationId">@eval.EvaluationName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-grid">
+                        <button type="submit" class="btn btn-outline-primary mt-md-4">Move Ratee</button>
+                    </div>
+                </form>
+                @if (TempData["EditParticipantAudit"] is string auditLine)
+                {
+                    <div class="small text-muted mt-2">@auditLine</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">As Ratee (Incoming Raters)</div>
+            <div class="card-body">
+                <div id="ratersContainer">
+                    @if (Model.Raters.Any())
+                    {
+                        @await Html.PartialAsync("_RatersTablePartial", Model.Raters)
+                    }
+                    else
+                    {
+                        <div class="text-muted">No raters found for this evaluation.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">As Rater (Assigned Reviews)</div>
+            <div class="card-body">
+                <div id="rateesContainer">
+                    @if (Model.Ratees.Any())
+                    {
+                        @await Html.PartialAsync("_RateesTablePartial", Model.Ratees)
+                    }
+                    else
+                    {
+                        <div class="text-muted">No assigned reviews found for this evaluation.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">Participant Details</div>
+    <div class="card-body">
+        <form asp-action="SaveParticipant" asp-controller="Admin" method="post" data-busy-submit data-busy-text="Saving...">
+            <input type="hidden" asp-for="Participant.ParticipantId" />
+            <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
+            <input type="hidden" name="returnTab" value="@ViewBag.ReturnTab" />
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Participant.ParticipantNameFirst" class="form-label"></label>
+                    <input asp-for="Participant.ParticipantNameFirst" class="form-control" />
+                    <span asp-validation-for="Participant.ParticipantNameFirst" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Participant.ParticipantNameLast" class="form-label"></label>
+                    <input asp-for="Participant.ParticipantNameLast" class="form-control" />
+                    <span asp-validation-for="Participant.ParticipantNameLast" class="text-danger small"></span>
+                </div>
+                <div class="col-md-8">
+                    <label asp-for="Participant.ParticipantEmail" class="form-label"></label>
+                    <input asp-for="Participant.ParticipantEmail" class="form-control" />
+                    <span asp-validation-for="Participant.ParticipantEmail" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check form-switch">
+                        <input asp-for="Participant.ParticipantIsActive" class="form-check-input" />
+                        <label asp-for="Participant.ParticipantIsActive" class="form-check-label"></label>
+                    </div>
+                </div>
+            </div>
+
+            @if (Model.Participant != null && !Model.Participant.ParticipantHasRegistered)
             {
-                <option value="@item.EvaluationId">
-                    @item.EvaluationName (@(item.EvaluationActive ? "Active" : "Inactive"))
-                </option>
+                <div class="alert alert-warning py-2 mt-3 mb-0">
+                    Participant has not registered yet. Send or resend an invitation after saving.
+                </div>
             }
-        </select>
-    }
-    else
-    {
-        <span class="form-control-plaintext">No evaluations found.</span>
-    }
-</div>
+            <input asp-for="Participant.ParticipantHasRegistered" type="hidden" />
 
-<div class="form-group">
-    <h4>Evaluations with this participant as Ratee</h4>
-    <div id="ratersContainer">
-        @if (Model.Raters != null && Model.Raters.Any())
-        {
-            @await Html.PartialAsync("_RatersTablePartial", Model.Raters)
-        }
-        else
-        {
-            <span class="form-control-plaintext">No Raters found.</span>
-        }
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a asp-action="@ViewBag.ReturnUrl" asp-route-tab="@ViewBag.ReturnTab" class="btn btn-outline-secondary">Cancel</a>
+                <a asp-action="AddParticipantToEvaluation"
+                   asp-controller="Admin"
+                   asp-route-participantId="@participantId"
+                   asp-route-returnUrl="@ViewBag.ReturnUrl"
+                   asp-route-returnTab="@ViewBag.ReturnTab"
+                   class="btn btn-outline-primary">
+                    Add To Active Evaluation
+                </a>
+            </div>
+        </form>
     </div>
 </div>
-
-<div class="form-group">
-    <h4>Evaluations with this participant completing</h4>
-    <div id="rateesContainer">
-        @if (Model.Ratees != null && Model.Ratees.Any())
-        {
-            @await Html.PartialAsync("_RateesTablePartial", Model.Ratees)
-        }
-        else
-        {
-            <span class="form-control-plaintext">No evaluations found.</span>
-        }
-    </div>
-</div>
-
-<h4>Participant Details</h4>
-<form asp-action="SaveParticipant" asp-controller="Admin" method="post" data-busy-submit data-busy-text="Saving...">
-    <input type="hidden" asp-for="Participant.ParticipantId" />
-    <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
-    <div class="form-group">
-        <label asp-for="Participant.ParticipantNameFirst"></label>
-        <input asp-for="Participant.ParticipantNameFirst" class="form-control" />
-        <span asp-validation-for="Participant.ParticipantNameFirst" class="text-danger"></span>
-    </div>
-    <div class="form-group">
-        <label asp-for="Participant.ParticipantNameLast"></label>
-        <input asp-for="Participant.ParticipantNameLast" class="form-control" />
-        <span asp-validation-for="Participant.ParticipantNameLast" class="text-danger"></span>
-    </div>
-    <div class="form-group">
-        <label asp-for="Participant.ParticipantEmail"></label>
-        <input asp-for="Participant.ParticipantEmail" class="form-control" />
-        <span asp-validation-for="Participant.ParticipantEmail" class="text-danger"></span>
-    </div>
-    <div class="form-group">
-        <label asp-for="Participant.ParticipantIsActive">Is Active?</label>
-        <input asp-for="Participant.ParticipantIsActive" type="checkbox" />
-    </div>
-    <div class="form-group">
-        <label asp-for="Participant.ParticipantHasRegistered">&nbsp;</label>
-        @(Model.Participant != null && Model.Participant.ParticipantHasRegistered ? "" : "Participant has not yet registered on the site. Please resend their invitation to prompt them to create their account.")
-        <input asp-for="Participant.ParticipantHasRegistered" type="hidden" disabled />
-    </div>
-
-    <button type="submit" class="btn btn-primary">Save</button>
-    <a asp-action="@ViewBag.ReturnUrl" class="btn btn-secondary">Cancel</a>
-    <a asp-action="AddParticipantToEvaluation" 
-       asp-controller="Admin" 
-       asp-route-participantId="@(Model.Participant != null ? Model.Participant.ParticipantId.ToString() : "")"
-       asp-route-returnUrl="@ViewBag.ReturnUrl"
-       class="btn btn-secondary">
-       Add to active evaluation</a>
-</form>
 
 @section Scripts {
+    <div class="modal fade" id="moveRateeConfirmModal" tabindex="-1" aria-labelledby="moveRateeConfirmLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="moveRateeConfirmLabel">Confirm Phase Move</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Move this participant as ratee from:
+                    <div class="fw-semibold mt-1" id="moveFromEvalName">-</div>
+                    <div class="mt-2">to:</div>
+                    <div class="fw-semibold mt-1" id="moveToEvalName">-</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmMoveRateeBtn">Confirm Move</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="/js/pages/admin-edit-participant.js" asp-append-version="true"></script>
 }
