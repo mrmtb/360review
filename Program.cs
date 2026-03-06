@@ -183,36 +183,9 @@ else if (entraEnabled && !entraShowLoginOption)
     Console.WriteLine("Entra authentication is enabled but ShowLoginOption is false. External login provider is intentionally hidden.");
 }
 
-// Apply migrations BEFORE configuring DataProtection to ensure table exists
-var tempConnectionString = builder.Configuration.GetConnectionString("ApplicationDBConnection");
-var tempOptionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
-tempOptionsBuilder.UseNpgsql(tempConnectionString);
+var applyMigrationsOnStartup = builder.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup");
 
-using (var tempContext = new ApplicationDbContext(tempOptionsBuilder.Options, builder.Configuration))
-{
-    try
-    {
-        Console.WriteLine("Checking for pending database migrations...");
-        var pendingMigrations = tempContext.Database.GetPendingMigrations();
-        if (pendingMigrations.Any())
-        {
-            Console.WriteLine($"Applying {pendingMigrations.Count()} pending migrations: {string.Join(", ", pendingMigrations)}");
-            tempContext.Database.Migrate();
-            Console.WriteLine("Database migrations applied successfully");
-        }
-        else
-        {
-            Console.WriteLine("Database is up to date, no pending migrations");
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Error during migration: {ex.Message}");
-        Console.WriteLine("Application will continue but may have database issues");
-    }
-}
-
-// Now configure DataProtection with database storage (migrations are complete)
+// Configure DataProtection with database storage.
 builder.Services.AddDataProtection()
     .PersistKeysToDbContext<ApplicationDbContext>()
     .SetApplicationName("360ReviewApp");
@@ -220,6 +193,38 @@ builder.Services.AddDataProtection()
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 
 var app = builder.Build();
+
+if (applyMigrationsOnStartup)
+{
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("StartupMigrations");
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    try
+    {
+        logger.LogInformation("Checking for pending database migrations...");
+        var pendingMigrations = db.Database.GetPendingMigrations().ToList();
+
+        if (pendingMigrations.Count > 0)
+        {
+            logger.LogInformation(
+                "Applying {Count} pending migrations: {Migrations}",
+                pendingMigrations.Count,
+                string.Join(", ", pendingMigrations));
+            db.Database.Migrate();
+            logger.LogInformation("Database migrations applied successfully.");
+        }
+        else
+        {
+            logger.LogInformation("Database is up to date. No pending migrations.");
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex, "Database migration failed during startup.");
+        throw;
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

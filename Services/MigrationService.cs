@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using reviews.Models;
@@ -44,9 +45,22 @@ public class MigrationService
     {
         try
         {
-            var result = await _db.Database.ExecuteSqlRawAsync(
-                "SELECT 1 FROM information_schema.tables WHERE table_schema = 'legacy' AND table_name = '360_colleagues' LIMIT 1");
-            return true; //result >= 0;
+            await using var connection = _db.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+            }
+
+            await using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = 'legacy'
+                  AND table_name = '360_colleagues'
+                LIMIT 1";
+
+            var result = await command.ExecuteScalarAsync();
+            return result != null;
         }
         catch (Exception ex)
         {

@@ -22,6 +22,7 @@ dotnet build src/Endatix.Api/Endatix.Api.csproj -c Release
 # Edit src/Endatix.Api/appsettings.json
 # Set: "DefaultConnection": "Host=localhost;Port=5432;Database=endatix;Username=reviews_user;Password=YOUR_STRONG_PASSWORD"
 # Set: "Urls": "http://localhost:5001"
+# Prefer storing this in environment variables or your server secret store instead of source-controlled config.
 ```
 
 ### 4. Run Migrations
