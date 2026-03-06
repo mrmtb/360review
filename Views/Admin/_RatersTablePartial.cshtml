@@ -4,7 +4,14 @@
 
 @if (Model != null && Model.Any())
 {
-    <table class="table table-striped table-hover table-condensed">
+    <div class="table-responsive">
+    <table class="table table-striped table-hover table-sm align-middle mobile-stack admin-edit-table mb-0">
+        <colgroup>
+            <col class="col-person" />
+            <col class="col-role" />
+            <col class="col-last-email" />
+            <col class="col-status" />
+        </colgroup>
         <thead>
             <tr>
                 <th>Rater Name</th>
@@ -17,11 +24,11 @@
         @foreach (var item in Model)
         {
             <tr>
-                <td>@item.ParticipantNameFirst @item.ParticipantNameLast (@item.ParticipantEmail)</td>
-                <td>@item.ParticipantRoleName</td>
-                <td>@item.EvaluationParticipantDateLastEmailed?.ToString("g")</td>
-                <td>
-                    <button class="btn btn-sm btn-sm-nopad">
+                <td data-label="Rater Name" class="text-break">@item.ParticipantNameFirst @item.ParticipantNameLast (@item.ParticipantEmail)</td>
+                <td data-label="Completing As">@item.ParticipantRoleName</td>
+                <td data-label="Last Email">@item.EvaluationParticipantDateLastEmailed?.ToString("g")</td>
+                <td data-label="Status">
+                    <button class="btn btn-sm btn-sm-nopad" type="button">
                         @Html.Raw(item.EvaluationParticipantStatusDecoration)
                         @item.EvaluationParticipantStatusName
                     </button>
@@ -30,8 +37,9 @@
         }
         </tbody>
     </table>
+    </div>
 }
 else
 {
-    <span class="form-control-plaintext">No Raters found.</span>
+    <span class="form-control-plaintext">No raters found.</span>
 }

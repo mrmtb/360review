@@ -5,11 +5,17 @@ namespace reviews.Services;
 public interface IParticipantService
 {
     Task<List<vwAdminParticipants>> GetParticipantsByClientAsync(Guid clientId);
+    Task<List<AdminPersonRow>> GetAdminPeopleByClientAsync(Guid clientId);
     Task<AdminParticipantViewModel?> GetParticipantDetailsAsync(Guid participantId);
     Task<AdminParticipantViewModel?> GetParticipantDumpAsync(Guid participantId);
     Task<bool> SaveParticipantAsync(Participant participant);
     Task<bool> ToggleParticipantStatusAsync(Guid participantId);
     Task<bool> AddParticipantToEvaluationAsync(Guid participantId, Guid clientId);
+    Task<(bool Success, string Message)> MoveRateeToActiveEvaluationAsync(
+        Guid participantId,
+        Guid fromEvaluationId,
+        Guid toEvaluationId,
+        Guid clientId);
     Task<List<vwRatersByRatee>> GetRatersForEvaluationAsync(Guid evaluationId, Guid participantId);
     Task<List<vwEvaluationsToComplete>> GetRateesForEvaluationAsync(Guid evaluationId, Guid participantId);
     Task<List<vwEvaluationsToComplete>> GetEvaluationsToCompleteAsync(Guid participantId, Guid? evaluationId = null, bool activeOnly = false);

@@ -21,6 +21,7 @@
     var buttonActive = true;
     var maxText = "";
     var EvaluationTestEmails = false;
+    var canViewAllStatusLabels = User.IsInRole("Admin");
 
     if (Model.Raters != null && Model.Raters.Any())
     {
@@ -141,6 +142,9 @@
                 {
                     @foreach (var p in Model.Raters.Where(r => r.ParticipantRoleId == role.ParticipantRoleId))
                     {
+                        var showStatusLabel = canViewAllStatusLabels ||
+                            string.Equals(p.EvaluationParticipantStatusName, "Invitation Not Sent", StringComparison.OrdinalIgnoreCase);
+
                         if (p.EvaluationTestEmails) 
                         { 
                             EvaluationTestEmails = true; 
@@ -151,7 +155,12 @@
                             <td class="col-md-5">@p.ParticipantEmail</td>
                         @if (p.EvaluationParticipantStatusIsComplete == 0 && p.EvaluationParticipantStatusIsActive == 1)    
                         {
-                            <td class="col-md-3">@Html.Raw(p.EvaluationParticipantStatusDecoration) @p.EvaluationParticipantStatusName</td>
+                            <td class="col-md-3">
+                                @if (showStatusLabel)
+                                {
+                                    @Html.Raw(p.EvaluationParticipantStatusDecoration) @p.EvaluationParticipantStatusName
+                                }
+                            </td>
                             @if (p.EvaluationParticipantStatusId == 1 && p.ParticipantRoleName  != "Self")
                             {
                             <td class="align-middle">
@@ -177,7 +186,12 @@
                         }
                         else 
                         {
-                            <td class="col-md-3">@Html.Raw(p.EvaluationParticipantStatusDecoration) @p.EvaluationParticipantStatusName</td>
+                            <td class="col-md-3">
+                                @if (showStatusLabel)
+                                {
+                                    @Html.Raw(p.EvaluationParticipantStatusDecoration) @p.EvaluationParticipantStatusName
+                                }
+                            </td>
                             <td class="align-middle"> </td>
                         }
                         </tr>

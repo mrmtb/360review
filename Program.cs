@@ -94,13 +94,14 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 var entraAuthSection = builder.Configuration.GetSection("Authentication:Entra");
 var entraEnabled = entraAuthSection.GetValue<bool>("Enabled");
+var entraShowLoginOption = entraAuthSection.GetValue<bool?>("ShowLoginOption") ?? entraEnabled;
 var entraClientId = entraAuthSection["ClientId"];
 var entraClientSecret = entraAuthSection["ClientSecret"];
 var entraTenantId = entraAuthSection["TenantId"] ?? "common";
 var entraAuthorityBase = entraAuthSection["AuthorityBase"] ?? "https://login.microsoftonline.com";
 var entraCallbackPath = entraAuthSection["CallbackPath"] ?? "/signin-oidc";
 
-if (entraEnabled)
+if (entraEnabled && entraShowLoginOption)
 {
     if (string.IsNullOrWhiteSpace(entraClientId) || string.IsNullOrWhiteSpace(entraClientSecret))
     {
@@ -176,6 +177,10 @@ if (entraEnabled)
                 };
             });
     }
+}
+else if (entraEnabled && !entraShowLoginOption)
+{
+    Console.WriteLine("Entra authentication is enabled but ShowLoginOption is false. External login provider is intentionally hidden.");
 }
 
 // Apply migrations BEFORE configuring DataProtection to ensure table exists
