@@ -2,6 +2,36 @@
 
 Complete continuous integration and deployment pipeline for Windows Server deployment.
 
+## Dependency Updates
+
+[Dependabot configuration](../.github/dependabot.yml) checks NuGet packages in
+the solution (including the test project) and GitHub Actions every weekday.
+All version updates, including major versions, belong to the shared
+`dependencies` multi-ecosystem group, limited to one open version-update PR.
+Scheduled runs refresh the open grouped PR with eligible updates instead of
+opening individual dependency PRs. Review and test updates before merging;
+automatic merging is not enabled.
+
+Security updates are grouped separately by ecosystem. GitHub does not combine
+these with the multi-ecosystem version-update PR, and its separate security PR
+limit is not controlled by `open-pull-requests-limit`.
+
+To activate:
+
+1. Merge the configuration into the repository's default branch.
+2. In GitHub repository **Settings > Advanced Security** (or **Code security**),
+   enable **Dependency graph**, **Dependabot alerts**, and **Dependabot security
+   updates**. These repository settings are not enabled by the YAML file.
+3. Check **Insights > Dependency graph > Dependabot** for the `dependencies`
+   group and update logs after the first run.
+
+Leave Dependabot branches unmodified so it can refresh them automatically.
+If an open PR stops refreshing, comment `@dependabot recreate` to regenerate
+it; this overwrites manual edits to that PR. Dependabot's own refresh and rebase
+limits still apply, so this is not an indefinitely maintained PR guarantee.
+Libraries copied directly into `wwwroot/lib` or loaded from CDNs are not
+updated by this configuration because they have no supported package manifest.
+
 ## 📋 Documentation
 
 - **[CI/CD Pipeline Documentation](CI-CD-PIPELINE.md)** - Complete guide to the CI/CD pipeline
