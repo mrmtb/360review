@@ -13,7 +13,7 @@ public interface IEvaluationService
     Task<SurveyVersionUsageViewModel?> GetSurveyVersionUsageAsync(Guid evaluationId, Guid surveyDefinitionVersionId, Guid clientId, string usageType);
     Task<SurveyVersionDetailViewModel?> GetSurveyVersionDetailAsync(Guid evaluationId, Guid surveyDefinitionVersionId, Guid clientId);
     Task<SurveyActionResult> SaveSurveyVersionDraftAsync(Guid surveyDefinitionVersionId, Guid clientId, string draftJson, string editedBy);
-    Task<SurveyActionResult> PublishSurveyVersionAsync(Guid surveyDefinitionVersionId, Guid clientId, string publishedBy);
+    Task<SurveyActionResult> PublishSurveyVersionAsync(Guid surveyDefinitionVersionId, Guid clientId, string publishedBy, string? draftJson = null);
     Task<SurveyActionResult> SetCurrentSurveyVersionAsync(Guid evaluationId, Guid surveyDefinitionVersionId, Guid clientId, bool forceSwitch = false);
     Task<SurveyActionResult> UpdateSurveyVersionTemplatePathAsync(Guid surveyDefinitionVersionId, Guid clientId, string templatePath);
     Task<SurveyActionResult> CreateNextSurveyVersionAsync(Guid evaluationId, Guid clientId);

@@ -226,6 +226,12 @@ if (applyMigrationsOnStartup)
     }
 }
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await SurveyVersionBootstrapper.ImportLegacyVersionsAsync(db, app.Configuration);
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

@@ -812,9 +812,11 @@ namespace reviews.Migrations
                         .HasColumnType("jsonb");
 
                     b.Property<bool>("IsPublished")
+                        .IsConcurrencyToken()
                         .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LastEditedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LastEditedBy")
@@ -829,6 +831,7 @@ namespace reviews.Migrations
                         .HasColumnType("character varying(256)");
 
                     b.Property<string>("PublishedJson")
+                        .IsConcurrencyToken()
                         .HasColumnType("jsonb");
 
                     b.Property<Guid>("SurveyDefinitionId")

@@ -10,6 +10,65 @@ namespace reviews.Tests.Unit.Services;
 public class SurveyVersioningMigrationTests
 {
     [PostgresFact]
+    public async Task Publication_RejectsStalePublisherAndDraftWriter()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("SURVEY_MIGRATION_TEST_CONNECTION")!;
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        Assert.StartsWith("360review_pr12_", connection.Database);
+        await using var transaction = await connection.BeginTransactionAsync();
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(connection).Options;
+        await using var setup = new ApplicationDbContext(options, null!);
+        await setup.Database.UseTransactionAsync(transaction);
+        await using (var emptyCheck = new NpgsqlCommand("SELECT count(*) FROM pg_tables WHERE schemaname = 'public'", connection, transaction))
+        {
+            Assert.Equal(0L, await emptyCheck.ExecuteScalarAsync());
+        }
+
+        await setup.Database.ExecuteSqlRawAsync(setup.Database.GenerateCreateScript());
+        var client = reviews.Tests.Helpers.TestDataBuilder.CreateClient();
+        var version = new SurveyDefinitionVersion
+        {
+            SurveyDefinition = new SurveyDefinition
+            {
+                ClientId = client.ClientId, SurveyDefinitionKey = "concurrent", SurveyDefinitionName = "Concurrent"
+            },
+            VersionNumber = 1, TemplateKey = "concurrent-v1", TemplatePath = "unused.json",
+            DraftJson = "{\"title\":\"Original draft\"}", IsPublished = false
+        };
+        setup.Clients.Add(client);
+        setup.SurveyDefinitionVersions.Add(version);
+        await setup.SaveChangesAsync();
+
+        await using var first = new ApplicationDbContext(options, null!);
+        await using var second = new ApplicationDbContext(options, null!);
+        await using var editor = new ApplicationDbContext(options, null!);
+        foreach (var context in new[] { first, second, editor })
+        {
+            await context.Database.UseTransactionAsync(transaction);
+            await context.SurveyDefinitionVersions.Include(item => item.SurveyDefinition).SingleAsync();
+        }
+
+        reviews.Services.EvaluationService Service(ApplicationDbContext context) => new(context,
+            Moq.Mock.Of<Microsoft.Extensions.Logging.ILogger<reviews.Services.EvaluationService>>());
+        var winner = await Service(first).PublishSurveyVersionAsync(
+            version.SurveyDefinitionVersionId, client.ClientId, "first@test.com", "{\"title\":\"Winner\"}");
+        var loser = await Service(second).PublishSurveyVersionAsync(
+            version.SurveyDefinitionVersionId, client.ClientId, "second@test.com", "{\"title\":\"Loser\"}");
+        var staleDraft = await Service(editor).SaveSurveyVersionDraftAsync(
+            version.SurveyDefinitionVersionId, client.ClientId, "{\"title\":\"Late edit\"}", "editor@test.com");
+
+        Assert.True(winner.Success);
+        Assert.False(loser.Success);
+        Assert.False(staleDraft.Success);
+        await setup.Entry(version).ReloadAsync();
+        Assert.Equal("first@test.com", version.PublishedBy);
+        Assert.Contains("Winner", version.PublishedJson);
+        Assert.Equal(version.DraftJson, version.PublishedJson);
+        await transaction.RollbackAsync();
+    }
+
+    [PostgresFact]
     public async Task UpgradeAndRollback_PreserveLegacyDataAndBackfillVersionLinks()
     {
         var connectionString = Environment.GetEnvironmentVariable("SURVEY_MIGRATION_TEST_CONNECTION")!;

@@ -13,7 +13,7 @@ public partial class Evaluation
 
     public string EvaluationName { get; set; } = null!;
 
-    public string EvaluationFolder { get; set; } = null!;
+    public string EvaluationFolder { get; set; } = string.Empty;
 
     public string? EvaluationHelpContact { get; set; } = "";
 

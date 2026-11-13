@@ -850,6 +850,40 @@ public class EvaluationServiceTests
         return evaluation;
     }
 
+    [Fact]
+    public async Task SaveEvaluationAsync_OmittedLegacyFolder_PreservesExistingValue()
+    {
+        await using var db = CreateDbContext();
+        var existing = await SeedAuthoredSurveyAsync(db);
+        var originalFolder = existing.EvaluationFolder;
+        var submitted = new Evaluation
+        {
+            EvaluationId = existing.EvaluationId,
+            ClientId = existing.ClientId,
+            EvaluationName = "Updated evaluation",
+            CurrentSurveyDefinitionVersionId = existing.CurrentSurveyDefinitionVersionId
+        };
+
+        Assert.True(await CreateService(db).SaveEvaluationAsync(submitted, existing.ClientId));
+        Assert.Equal(originalFolder, existing.EvaluationFolder);
+        Assert.Equal("Updated evaluation", existing.EvaluationName);
+    }
+
+    [Fact]
+    public async Task SaveEvaluationAsync_NewEvaluation_InitializesLegacyFolder()
+    {
+        await using var db = CreateDbContext();
+        var client = TestDataBuilder.CreateClient();
+        db.Clients.Add(client);
+        await db.SaveChangesAsync();
+        var submitted = new Evaluation { EvaluationId = Guid.Empty, ClientId = client.ClientId, EvaluationName = "New" };
+
+        Assert.True(await CreateService(db).SaveEvaluationAsync(submitted, client.ClientId));
+        var saved = Assert.Single(await db.Evaluations.ToListAsync());
+        Assert.Equal(string.Empty, saved.EvaluationFolder);
+        Assert.NotEqual(Guid.Empty, saved.EvaluationId);
+    }
+
     private static EvaluationService CreateService(ApplicationDbContext db)
     {
         return new EvaluationService(

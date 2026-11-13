@@ -68,12 +68,14 @@ public class EvaluationService : IEvaluationService
                 .Include(e => e.CurrentSurveyDefinitionVersion)
                 .FirstOrDefaultAsync(e => e.EvaluationId == model.EvaluationId && e.ClientId == clientId);
 
+            var isNew = evaluation == null;
             if (evaluation == null)
             {
                 evaluation = new Evaluation
                 {
-                    EvaluationId = model.EvaluationId,
-                    ClientId = model.ClientId
+                    EvaluationId = model.EvaluationId == Guid.Empty ? Guid.NewGuid() : model.EvaluationId,
+                    ClientId = model.ClientId,
+                    EvaluationFolder = model.EvaluationFolder ?? string.Empty
                 };
             }
 
@@ -81,7 +83,7 @@ public class EvaluationService : IEvaluationService
             var properties = typeof(Evaluation).GetProperties();
             foreach (var prop in properties)
             {
-                if (prop.Name == "EvaluationId" || prop.Name == "ClientId") continue;
+                if (prop.Name is "EvaluationId" or "ClientId" or "EvaluationFolder") continue;
                 if (!IsPersistedScalar(prop.PropertyType)) continue;
 
                 var newValue = prop.GetValue(model);
@@ -127,7 +129,7 @@ public class EvaluationService : IEvaluationService
                 evaluation.CurrentSurveyDefinitionVersion.TemplatePath = normalizedTemplatePath;
             }
 
-            if (evaluation.EvaluationId == Guid.Empty)
+            if (isNew)
             {
                 _db.Evaluations.Add(evaluation);
             }
@@ -287,7 +289,11 @@ public class EvaluationService : IEvaluationService
             return null;
         }
 
-        var normalizedUsageType = usageType.Trim().ToLowerInvariant();
+        var normalizedUsageType = usageType?.Trim().ToLowerInvariant();
+        if (normalizedUsageType is not ("pinned" or "started" or "submitted"))
+        {
+            return null;
+        }
 
         var rawRows =
             from ep in _db.EvaluationParticipants.AsNoTracking()
@@ -432,7 +438,7 @@ public class EvaluationService : IEvaluationService
         }
     }
 
-    public async Task<SurveyActionResult> PublishSurveyVersionAsync(Guid surveyDefinitionVersionId, Guid clientId, string publishedBy)
+    public async Task<SurveyActionResult> PublishSurveyVersionAsync(Guid surveyDefinitionVersionId, Guid clientId, string publishedBy, string? draftJson = null)
     {
         try
         {
@@ -450,12 +456,13 @@ public class EvaluationService : IEvaluationService
                 return new SurveyActionResult(false, "Published survey versions cannot be changed. Create a new version instead.", "warning");
             }
 
-            var sourceJson = version.DraftJson;
+            var sourceJson = draftJson ?? version.DraftJson;
             if (!TryNormalizeSurveyJson(sourceJson, out var normalizedJson, out var validationMessage))
             {
                 return new SurveyActionResult(false, validationMessage, "danger");
             }
 
+            version.DraftJson = normalizedJson;
             version.PublishedJson = normalizedJson;
             version.IsPublished = true;
             version.PublishedAt = DateTimeOffset.UtcNow;
@@ -465,6 +472,10 @@ public class EvaluationService : IEvaluationService
 
             await _db.SaveChangesAsync();
             return new SurveyActionResult(true, $"Published {version.SurveyDefinition!.SurveyDefinitionName} v{version.VersionNumber}.");
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new SurveyActionResult(false, "This version was changed or published by another administrator. Reload before trying again.", "warning");
         }
         catch (Exception ex)
         {

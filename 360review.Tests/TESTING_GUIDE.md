@@ -32,6 +32,19 @@ Published versions are read-only; cloning copies the published JSON into a new
 draft without changing the evaluation's current version. Publish the draft before
 selecting it for new starters. Existing participant assignments remain pinned.
 
+Startup imports the configured `Survey:TemplatePath` into migration-seeded legacy
+versions before serving requests. Apply the schema migrations first and ensure
+that file is readable and contains a JSON object; startup fails rather than
+substituting another questionnaire when the import cannot be performed. Existing
+snapshots are not overwritten on later startups. New clients receive an initial
+published snapshot from the same configured template.
+
+The PostgreSQL regression suite also verifies that stale publishers and editors
+cannot overwrite the winning published snapshot. Publication includes the submitted
+editor contents in one concurrency-protected save. Unit tests cover exact assignment
+email targeting, resends, empty selections, evaluation saves, client bootstrap,
+and preservation of failed editor submissions. Email tests use a mocked sender.
+
 ## Testing Philosophy
 
 ### The Testing Pyramid

@@ -165,7 +165,7 @@
                                           hx-post="@Url.Action("SetCurrentSurveyVersion", "Admin")"
                                           hx-target="#detailsContainer"
                                           hx-swap="innerHTML"
-                                          onsubmit="return @Html.Raw(string.IsNullOrWhiteSpace(switchWarning) ? "true" : $"confirm({System.Text.Json.JsonSerializer.Serialize(switchWarning)})");">
+                                          hx-confirm="@(string.IsNullOrWhiteSpace(switchWarning) ? null : switchWarning)">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="evaluationId" value="@Model.EvaluationId" />
                                         <input type="hidden" name="surveyDefinitionVersionId" value="@version.SurveyDefinitionVersionId" />

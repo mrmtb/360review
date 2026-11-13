@@ -762,36 +762,28 @@ public class AdminController : Controller
         Guid participantId,
         string actionType)
     {
-        var normalizedActionType = actionType?.Trim().ToLowerInvariant();
-        bool success;
-        string message;
-
-        switch (normalizedActionType)
+        var usageModel = await _evaluationService.GetSurveyVersionUsageAsync(evaluationId, surveyDefinitionVersionId, LocalClientId, usageType);
+        if (usageModel == null || !usageModel.Rows.Any(row =>
+            row.EvaluationRateeId == evaluationRateeId && row.RaterParticipantId == participantId && !row.IsSubmitted))
         {
-            case "invite":
-                success = await _invitationService.ProcessInvitationsAsync(
-                    new List<(Guid EvaluationRateeId, Guid ParticipantId)> { (evaluationRateeId, participantId) },
-                    LocalClientId,
-                    LocalEmail);
-                message = success ? "Invitation queued." : "Unable to queue the invitation.";
-                break;
-            case "remind":
-                success = await _invitationService.ProcessRemindersAsync(
-                    new List<Guid> { participantId },
-                    LocalClientId,
-                    LocalEmail);
-                message = success ? "Reminder queued." : "Unable to queue the reminder.";
-                break;
-            default:
-                return await RenderSurveyVersionUsagePartialAsync(evaluationId, surveyDefinitionVersionId, usageType, "Unknown action.", "danger");
+            return BadRequest("No eligible assignment was selected.");
         }
 
+        var normalizedActionType = actionType?.Trim().ToLowerInvariant();
+        if (normalizedActionType is not ("invite" or "remind"))
+        {
+            return BadRequest("Unknown action.");
+        }
+
+        var count = await _invitationService.SendAssignmentEmailsAsync(
+            new List<(Guid EvaluationRateeId, Guid ParticipantId)> { (evaluationRateeId, participantId) },
+            LocalClientId, LocalEmail, normalizedActionType == "remind");
         return await RenderSurveyVersionUsagePartialAsync(
             evaluationId,
             surveyDefinitionVersionId,
             usageType,
-            message,
-            success ? "success" : "danger");
+            $"Queued {count} assignment email(s).",
+            count > 0 ? "success" : "warning");
     }
 
     [HttpPost]
@@ -809,36 +801,26 @@ public class AdminController : Controller
             return NotFound();
         }
 
-        var normalizedActionType = actionType?.Trim().ToLowerInvariant();
-        bool success;
-        string message;
-
-        switch (normalizedActionType)
+        var targets = usageModel.Rows.Where(row => !row.IsSubmitted)
+            .Select(row => (row.EvaluationRateeId, ParticipantId: row.RaterParticipantId)).Distinct().ToList();
+        if (targets.Count == 0)
         {
-            case "invite":
-                success = await _invitationService.ProcessInvitationsAsync(
-                    usageModel.InvitationTargets.Select(x => (x.EvaluationRateeId, x.ParticipantId)).ToList(),
-                    LocalClientId,
-                    LocalEmail);
-                message = success ? $"Queued invitations for {usageModel.InvitationTargets.Count} participants." : "Unable to queue invitations for this filtered set.";
-                break;
-            case "remind":
-                success = await _invitationService.ProcessRemindersAsync(
-                    usageModel.ParticipantIds,
-                    LocalClientId,
-                    LocalEmail);
-                message = success ? $"Queued reminders for {usageModel.ParticipantIds.Count} participants." : "Unable to queue reminders for this filtered set.";
-                break;
-            default:
-                return await RenderSurveyVersionUsagePartialAsync(evaluationId, surveyDefinitionVersionId, usageType, "Unknown bulk action.", "danger");
+            return await RenderSurveyVersionUsagePartialAsync(evaluationId, surveyDefinitionVersionId, usageType, "No matching assignments were selected.", "warning");
         }
 
+        var normalizedActionType = actionType?.Trim().ToLowerInvariant();
+        if (normalizedActionType is not ("invite" or "remind"))
+        {
+            return BadRequest("Unknown bulk action.");
+        }
+
+        var count = await _invitationService.SendAssignmentEmailsAsync(targets, LocalClientId, LocalEmail, normalizedActionType == "remind");
         return await RenderSurveyVersionUsagePartialAsync(
             evaluationId,
             surveyDefinitionVersionId,
             usageType,
-            message,
-            success ? "success" : "danger");
+            $"Queued {count} assignment email(s).",
+            count > 0 ? "success" : "warning");
     }
 
     [HttpPost]
@@ -847,7 +829,8 @@ public class AdminController : Controller
     public async Task<IActionResult> SaveSurveyVersionDraft(Guid evaluationId, Guid surveyDefinitionVersionId, string draftJson)
     {
         var result = await _evaluationService.SaveSurveyVersionDraftAsync(surveyDefinitionVersionId, LocalClientId, draftJson, LocalEmail);
-        return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId, result.Message, result.Severity);
+        return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId, result.Message, result.Severity,
+            result.Success ? null : draftJson);
     }
 
     [HttpPost]
@@ -855,17 +838,9 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> PublishSurveyVersion(Guid evaluationId, Guid surveyDefinitionVersionId, string? draftJson = null)
     {
-        if (draftJson != null)
-        {
-            var saveResult = await _evaluationService.SaveSurveyVersionDraftAsync(surveyDefinitionVersionId, LocalClientId, draftJson, LocalEmail);
-            if (!saveResult.Success)
-            {
-                return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId, saveResult.Message, saveResult.Severity);
-            }
-        }
-
-        var result = await _evaluationService.PublishSurveyVersionAsync(surveyDefinitionVersionId, LocalClientId, LocalEmail);
-        return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId, result.Message, result.Severity);
+        var result = await _evaluationService.PublishSurveyVersionAsync(surveyDefinitionVersionId, LocalClientId, LocalEmail, draftJson);
+        return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId, result.Message, result.Severity,
+            result.Success ? null : draftJson);
     }
 
     [HttpGet]
@@ -928,7 +903,8 @@ public class AdminController : Controller
         Guid evaluationId,
         Guid surveyDefinitionVersionId,
         string? message = null,
-        string severity = "success")
+        string severity = "success",
+        string? submittedDraftJson = null)
     {
         var model = await _evaluationService.GetSurveyVersionDetailAsync(evaluationId, surveyDefinitionVersionId, LocalClientId);
         if (model == null)
@@ -938,6 +914,11 @@ public class AdminController : Controller
 
         ViewData["SurveyVersionDetailMessage"] = message;
         ViewData["SurveyVersionDetailMessageSeverity"] = severity;
+        if (!model.IsPublished && submittedDraftJson != null)
+        {
+            model.DraftJson = submittedDraftJson;
+        }
+
         return PartialView("_SurveyVersionDetailPartial", model);
     }
 }

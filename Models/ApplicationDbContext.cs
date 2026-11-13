@@ -557,9 +557,10 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
 
             entity.Property(e => e.SurveyDefinitionVersionId).HasDefaultValueSql("gen_random_uuid()");
             entity.Property(e => e.DraftJson).HasColumnType("jsonb");
-            entity.Property(e => e.PublishedJson).HasColumnType("jsonb");
+            entity.Property(e => e.PublishedJson).HasColumnType("jsonb").IsConcurrencyToken();
+            entity.Property(e => e.IsPublished).IsConcurrencyToken();
             entity.Property(e => e.CreatedAt).HasColumnType("timestamp with time zone");
-            entity.Property(e => e.LastEditedAt).HasColumnType("timestamp with time zone");
+            entity.Property(e => e.LastEditedAt).HasColumnType("timestamp with time zone").IsConcurrencyToken();
             entity.Property(e => e.PublishedAt).HasColumnType("timestamp with time zone");
             entity.HasIndex(e => new { e.SurveyDefinitionId, e.VersionNumber }, "UK_SurveyDefinitionVersion_SurveyDefinitionId_VersionNumber").IsUnique();
 
