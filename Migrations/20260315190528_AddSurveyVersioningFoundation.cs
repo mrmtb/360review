@@ -161,7 +161,7 @@ namespace reviews.Migrations
                 UPDATE public."Evaluation" e
                 SET "CurrentSurveyDefinitionVersionId" = sv."SurveyDefinitionVersionId"
                 FROM seeded_versions sv
-                INNER JOIN public."SurveyDefinition" sd
+                INNER JOIN seeded_definitions sd
                     ON sd."SurveyDefinitionId" = sv."SurveyDefinitionId"
                 WHERE e."ClientId" = sd."ClientId";
                 """);

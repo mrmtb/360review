@@ -60,10 +60,7 @@
                 <label class="col-2 col-form-label fw-bold" for="surveyTemplatePath">Template Source</label>
                 <div class="col">
                     <input type="hidden" class="form-control" name="initialEvaluationFolder" id="initialEvaluationFolder" value="@Model.EvaluationFolder" />
-                    <input type="text" class="form-control" name="surveyTemplatePath" id="surveyTemplatePath" value="@currentTemplatePath" />
-                    <div class="form-text">
-                        First pass: this points the current version to a SurveyJS JSON file under the workspace, such as <code>Surveys/leadership-competency-v1.json</code>.
-                    </div>
+                    <input type="text" class="form-control" name="surveyTemplatePath" id="surveyTemplatePath" value="@currentTemplatePath" readonly="@(Model.CurrentSurveyDefinitionVersion?.IsPublished == true)" />
                 </div>
             </div>
             <div class="mb-3 row align-items-center">

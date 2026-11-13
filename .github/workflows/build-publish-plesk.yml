@@ -27,6 +27,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  survey-migration-test:
+    name: Survey Migration Upgrade and Rollback
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: 360review_pr12_migrations
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SURVEY_MIGRATION_TEST_CONNECTION: Host=localhost;Port=5432;Database=360review_pr12_migrations;Username=postgres
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Test survey migration upgrade and rollback
+        run: dotnet test 360review.Tests/360review.Tests.csproj --configuration Release --filter FullyQualifiedName~SurveyVersioningMigrationTests --verbosity minimal
+
   build-and-test:
     name: Build and Test
     runs-on: windows-latest

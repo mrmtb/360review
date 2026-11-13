@@ -14,7 +14,7 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
-            <h5 class="mb-1">@Model.SurveyDefinitionName v@Model.VersionNumber</h5>
+            <h5 class="mb-1">@Model.SurveyDefinitionName v@(Model.VersionNumber)</h5>
             <div class="text-muted small">@Model.EvaluationName</div>
         </div>
         <button type="button"
@@ -64,10 +64,6 @@
             </div>
         </div>
 
-        <div class="alert alert-info" role="alert">
-            This is the first authoring slice. The editor below is JSON-based today, but this panel is where we can embed a SurveyJS WYSIWYG creator next.
-        </div>
-
         <div class="row g-3">
             <div class="col-lg-7">
                 <form asp-action="SaveSurveyVersionDraft"
@@ -79,21 +75,28 @@
                     <input type="hidden" name="evaluationId" value="@Model.EvaluationId" />
                     <input type="hidden" name="surveyDefinitionVersionId" value="@Model.SurveyDefinitionVersionId" />
                     <label class="form-label fw-semibold" for="draftJson">Draft JSON</label>
-                    <textarea class="form-control font-monospace" id="draftJson" name="draftJson" rows="24">@Model.DraftJson</textarea>
+                    <textarea class="form-control font-monospace" id="draftJson" name="draftJson" rows="24" readonly="@Model.IsPublished">@(Model.IsPublished ? Model.PublishedJson : Model.DraftJson)</textarea>
                     <div class="d-flex gap-2 flex-wrap mt-3">
-                        <button type="submit" class="btn btn-primary">Save Draft</button>
+                        @if (!Model.IsPublished)
+                        {
+                            <button type="submit" class="btn btn-primary">Save Draft</button>
+                        }
                         <button type="button"
                                 class="btn btn-outline-secondary"
                                 hx-get="@Url.Action("PreviewSurveyVersion", "Admin", new { evaluationId = Model.EvaluationId, surveyDefinitionVersionId = Model.SurveyDefinitionVersionId })"
+                                hx-swap="none"
                                 hx-on::after-request="window.AdminSurveyPreview && window.AdminSurveyPreview(event);">
-                            Preview Draft
+                            Preview
                         </button>
-                        <button type="submit"
-                                class="btn btn-outline-success"
-                                formaction="@Url.Action("PublishSurveyVersion", "Admin")"
-                                formmethod="post">
-                            Publish Version
-                        </button>
+                        @if (!Model.IsPublished)
+                        {
+                            <button type="button"
+                                    class="btn btn-outline-success"
+                                    hx-post="@Url.Action("PublishSurveyVersion", "Admin")"
+                                    hx-include="closest form">
+                                Publish Version
+                            </button>
+                        }
                     </div>
                 </form>
             </div>
@@ -126,7 +129,7 @@
             previewContainer.innerHTML = '';
             const surveyModel = new Survey.Model(JSON.parse(payload.surveyDefinition));
             surveyModel.mode = 'display';
-            Survey.Knockout.renderSurvey(previewContainer, { model: surveyModel });
+            surveyModel.render(previewContainer);
             previewMessage.textContent = 'Preview loaded from the current draft.';
         } catch (error) {
             previewMessage.textContent = 'Preview failed. Save a valid JSON draft first.';

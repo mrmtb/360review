@@ -43,7 +43,7 @@ public class SurveyTemplateResolver : ISurveyTemplateResolver
             .AsNoTracking()
             .FirstOrDefaultAsync(v => v.SurveyDefinitionVersionId == surveyDefinitionVersionId, ct);
 
-        if (version == null)
+        if (version == null || !version.IsPublished)
         {
             _logger.LogError("Survey definition version not found: {SurveyDefinitionVersionId}", surveyDefinitionVersionId);
             return null;

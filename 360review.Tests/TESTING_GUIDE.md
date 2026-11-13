@@ -3,6 +3,35 @@
 ## Overview
 This guide provides best practices and examples for testing the 360 Review application.
 
+## Survey Versioning Regression Checks
+
+Run the unit and controller suite with:
+
+```bash
+dotnet test 360review.Tests/360review.Tests.csproj --configuration Release
+```
+
+The PostgreSQL migration test is skipped unless
+`SURVEY_MIGRATION_TEST_CONNECTION` points to an empty disposable database whose
+name starts with `360review_pr12_`. Never use an application or production database.
+It applies the foundation and authoring migrations to representative legacy data,
+verifies tenant-scoped backfills and preserved responses, then tests rollback.
+All database changes are made in a rolled-back transaction.
+
+```bash
+SURVEY_MIGRATION_TEST_CONNECTION='Host=localhost;Port=5432;Database=360review_pr12_migrations;Username=postgres' \
+    dotnet test 360review.Tests/360review.Tests.csproj --configuration Release \
+    --filter FullyQualifiedName~SurveyVersioningMigrationTests
+```
+
+The `Survey Migration Upgrade and Rollback` CI job provisions its own PostgreSQL
+service and runs this check on pull requests.
+
+Survey authoring now follows draft, publish, and explicit selection steps.
+Published versions are read-only; cloning copies the published JSON into a new
+draft without changing the evaluation's current version. Publish the draft before
+selecting it for new starters. Existing participant assignments remain pinned.
+
 ## Testing Philosophy
 
 ### The Testing Pyramid

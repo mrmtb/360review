@@ -853,8 +853,17 @@ public class AdminController : Controller
     [HttpPost]
     [Authorize(Roles = RoleNames.Admin)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> PublishSurveyVersion(Guid evaluationId, Guid surveyDefinitionVersionId)
+    public async Task<IActionResult> PublishSurveyVersion(Guid evaluationId, Guid surveyDefinitionVersionId, string? draftJson = null)
     {
+        if (draftJson != null)
+        {
+            var saveResult = await _evaluationService.SaveSurveyVersionDraftAsync(surveyDefinitionVersionId, LocalClientId, draftJson, LocalEmail);
+            if (!saveResult.Success)
+            {
+                return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId, saveResult.Message, saveResult.Severity);
+            }
+        }
+
         var result = await _evaluationService.PublishSurveyVersionAsync(surveyDefinitionVersionId, LocalClientId, LocalEmail);
         return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId, result.Message, result.Severity);
     }
@@ -871,7 +880,7 @@ public class AdminController : Controller
 
         return Json(new
         {
-            surveyDefinition = model.DraftJson,
+            surveyDefinition = model.IsPublished ? model.PublishedJson : model.DraftJson,
             templateKey = model.TemplateKey,
             templateVersion = model.VersionNumber
         });

@@ -513,4 +513,36 @@ public class AdminControllerTests
         var redirectResult = Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal(ActionNames.EmailQueueDashboard, redirectResult.ActionName);
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PublishSurveyVersion_SavesSubmittedDraftBeforePublishing(bool saveSucceeds)
+    {
+        var evaluationId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        const string draftJson = "{\"pages\":[]}";
+        var sequence = new MockSequence();
+        _mockEvaluationService.InSequence(sequence)
+            .Setup(service => service.SaveSurveyVersionDraftAsync(versionId, It.IsAny<Guid>(), draftJson, It.IsAny<string>()))
+            .ReturnsAsync(new SurveyActionResult(saveSucceeds, "Draft result", saveSucceeds ? "success" : "danger"));
+        _mockEvaluationService.InSequence(sequence)
+            .Setup(service => service.PublishSurveyVersionAsync(versionId, It.IsAny<Guid>(), It.IsAny<string>()))
+            .ReturnsAsync(new SurveyActionResult(true, "Published"));
+        _mockEvaluationService
+            .Setup(service => service.GetSurveyVersionDetailAsync(evaluationId, versionId, It.IsAny<Guid>()))
+            .ReturnsAsync(new SurveyVersionDetailViewModel
+            {
+                EvaluationId = evaluationId,
+                SurveyDefinitionVersionId = versionId
+            });
+
+        var result = await _controller.PublishSurveyVersion(evaluationId, versionId, draftJson);
+
+        Assert.IsType<PartialViewResult>(result);
+        _mockEvaluationService.Verify(service => service.SaveSurveyVersionDraftAsync(
+            versionId, It.IsAny<Guid>(), draftJson, It.IsAny<string>()), Times.Once());
+        _mockEvaluationService.Verify(service => service.PublishSurveyVersionAsync(
+            versionId, It.IsAny<Guid>(), It.IsAny<string>()), saveSucceeds ? Times.Once() : Times.Never());
+    }
 }

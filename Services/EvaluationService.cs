@@ -55,6 +55,15 @@ public class EvaluationService : IEvaluationService
                 return false;
             }
 
+            if (model.CurrentSurveyDefinitionVersionId.HasValue &&
+                !await _db.SurveyDefinitionVersions.AnyAsync(version =>
+                    version.SurveyDefinitionVersionId == model.CurrentSurveyDefinitionVersionId &&
+                    version.SurveyDefinition!.ClientId == clientId &&
+                    version.SurveyDefinition.IsActive && version.IsPublished))
+            {
+                return false;
+            }
+
             var evaluation = await _db.Evaluations
                 .Include(e => e.CurrentSurveyDefinitionVersion)
                 .FirstOrDefaultAsync(e => e.EvaluationId == model.EvaluationId && e.ClientId == clientId);
@@ -104,6 +113,11 @@ public class EvaluationService : IEvaluationService
                 evaluation.CurrentSurveyDefinitionVersion != null &&
                 !string.Equals(evaluation.CurrentSurveyDefinitionVersion.TemplatePath, surveyTemplatePath, StringComparison.Ordinal))
             {
+                if (evaluation.CurrentSurveyDefinitionVersion.IsPublished)
+                {
+                    return false;
+                }
+
                 if (!TryNormalizeTemplatePath(surveyTemplatePath, out var normalizedTemplatePath, out _))
                 {
                     _logger.LogWarning("Rejected invalid survey template path for evaluation {EvaluationId}: {TemplatePath}", model.EvaluationId, surveyTemplatePath);
@@ -394,6 +408,11 @@ public class EvaluationService : IEvaluationService
                 return new SurveyActionResult(false, "Survey version not found.", "danger");
             }
 
+            if (version.IsPublished)
+            {
+                return new SurveyActionResult(false, "Published survey versions cannot be changed. Create a new version instead.", "warning");
+            }
+
             if (!TryNormalizeSurveyJson(draftJson, out var normalizedJson, out var validationMessage))
             {
                 return new SurveyActionResult(false, validationMessage, "danger");
@@ -426,7 +445,12 @@ public class EvaluationService : IEvaluationService
                 return new SurveyActionResult(false, "Survey version not found.", "danger");
             }
 
-            var sourceJson = version.DraftJson ?? version.PublishedJson;
+            if (version.IsPublished)
+            {
+                return new SurveyActionResult(false, "Published survey versions cannot be changed. Create a new version instead.", "warning");
+            }
+
+            var sourceJson = version.DraftJson;
             if (!TryNormalizeSurveyJson(sourceJson, out var normalizedJson, out var validationMessage))
             {
                 return new SurveyActionResult(false, validationMessage, "danger");
@@ -468,6 +492,11 @@ public class EvaluationService : IEvaluationService
             if (version == null)
             {
                 return new SurveyActionResult(false, "Survey version not found.", "danger");
+            }
+
+            if (!version.IsPublished || !version.SurveyDefinition!.IsActive)
+            {
+                return new SurveyActionResult(false, "Publish an active survey version before using it for new starters.", "warning");
             }
 
             if (evaluation.CurrentSurveyDefinitionVersionId == surveyDefinitionVersionId)
@@ -520,6 +549,11 @@ public class EvaluationService : IEvaluationService
                 return new SurveyActionResult(false, "Survey version not found.", "danger");
             }
 
+            if (version.IsPublished)
+            {
+                return new SurveyActionResult(false, "Published survey versions cannot be changed. Create a new version instead.", "warning");
+            }
+
             if (!TryNormalizeTemplatePath(templatePath, out var normalizedTemplatePath, out var validationMessage))
             {
                 _logger.LogWarning("Rejected invalid survey template path for survey version {SurveyDefinitionVersionId}: {TemplatePath}", surveyDefinitionVersionId, templatePath);
@@ -552,6 +586,14 @@ public class EvaluationService : IEvaluationService
             }
 
             var current = evaluation.CurrentSurveyDefinitionVersion;
+            var sourceJson = current.IsPublished
+                ? current.PublishedJson ?? await LoadTemplateJsonFromPathAsync(current.TemplatePath)
+                : current.DraftJson;
+            if (!TryNormalizeSurveyJson(sourceJson, out _, out var validationMessage))
+            {
+                return new SurveyActionResult(false, validationMessage, "danger");
+            }
+
             var nextVersionNumber = await _db.SurveyDefinitionVersions
                 .Where(v => v.SurveyDefinitionId == current.SurveyDefinitionId)
                 .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
@@ -563,16 +605,15 @@ public class EvaluationService : IEvaluationService
                 VersionNumber = nextVersionNumber + 1,
                 TemplateKey = Regex.Replace(current.TemplateKey, "-v\\d+$", string.Empty) + $"-v{nextVersionNumber + 1}",
                 TemplatePath = current.TemplatePath,
-                IsPublished = true,
-                CreatedAt = DateTimeOffset.UtcNow,
-                PublishedAt = DateTimeOffset.UtcNow
+                DraftJson = sourceJson,
+                IsPublished = false,
+                CreatedAt = DateTimeOffset.UtcNow
             };
 
             _db.SurveyDefinitionVersions.Add(newVersion);
-            evaluation.CurrentSurveyDefinitionVersionId = newVersion.SurveyDefinitionVersionId;
 
             await _db.SaveChangesAsync();
-            return new SurveyActionResult(true, $"Created {evaluation.CurrentSurveyDefinitionVersion.SurveyDefinition.SurveyDefinitionName} v{newVersion.VersionNumber} and set it as the version for new starters.");
+            return new SurveyActionResult(true, $"Created draft {current.SurveyDefinition.SurveyDefinitionName} v{newVersion.VersionNumber}.");
         }
         catch (Exception ex)
         {
@@ -595,6 +636,15 @@ public class EvaluationService : IEvaluationService
                 return new SurveyActionResult(false, "The evaluation does not have a current survey to copy from.", "danger");
             }
 
+            var current = evaluation.CurrentSurveyDefinitionVersion;
+            var sourceJson = current.IsPublished
+                ? current.PublishedJson ?? await LoadTemplateJsonFromPathAsync(current.TemplatePath)
+                : current.DraftJson;
+            if (!TryNormalizeSurveyJson(sourceJson, out _, out var validationMessage))
+            {
+                return new SurveyActionResult(false, validationMessage, "danger");
+            }
+
             var baseName = string.IsNullOrWhiteSpace(evaluation.EvaluationName)
                 ? "Survey"
                 : $"{evaluation.EvaluationName} Survey";
@@ -615,18 +665,17 @@ public class EvaluationService : IEvaluationService
                 SurveyDefinitionId = surveyDefinition.SurveyDefinitionId,
                 VersionNumber = 1,
                 TemplateKey = surveyDefinition.SurveyDefinitionKey + "-v1",
-                TemplatePath = evaluation.CurrentSurveyDefinitionVersion.TemplatePath,
-                IsPublished = true,
-                CreatedAt = DateTimeOffset.UtcNow,
-                PublishedAt = DateTimeOffset.UtcNow
+                TemplatePath = current.TemplatePath,
+                DraftJson = sourceJson,
+                IsPublished = false,
+                CreatedAt = DateTimeOffset.UtcNow
             };
 
             _db.SurveyDefinitions.Add(surveyDefinition);
             _db.SurveyDefinitionVersions.Add(version);
-            evaluation.CurrentSurveyDefinitionVersionId = version.SurveyDefinitionVersionId;
 
             await _db.SaveChangesAsync();
-            return new SurveyActionResult(true, $"Created a new survey family, {surveyDefinition.SurveyDefinitionName} v1, and assigned it to this evaluation.");
+            return new SurveyActionResult(true, $"Created draft {surveyDefinition.SurveyDefinitionName} v1 in a new survey family.");
         }
         catch (Exception ex)
         {

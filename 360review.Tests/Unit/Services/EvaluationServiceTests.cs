@@ -11,6 +11,19 @@ namespace reviews.Tests.Unit.Services;
 public class EvaluationServiceTests
 {
     [Fact]
+    public void FoundationMigration_BackfillUsesSeededDefinitionsReturningRows()
+    {
+        var migration = new reviews.Migrations.AddSurveyVersioningFoundation();
+        var sql = migration.UpOperations
+            .OfType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>()
+            .First(operation => operation.Sql.Contains("WITH seeded_definitions"))
+            .Sql;
+
+        Assert.Contains("INNER JOIN seeded_definitions sd", sql);
+        Assert.DoesNotContain("INNER JOIN public.\"SurveyDefinition\" sd", sql);
+    }
+
+    [Fact]
     public async Task GetSurveyManagementAsync_PopulatesUsageCountsForVersions()
     {
         var clientId = Guid.NewGuid();
@@ -165,7 +178,7 @@ public class EvaluationServiceTests
             VersionNumber = 1,
             TemplateKey = "leadership-competency-v1",
             TemplatePath = "/tmp/original.json",
-            IsPublished = true,
+            IsPublished = false,
             CreatedAt = DateTimeOffset.UtcNow
         });
         await db.SaveChangesAsync();
@@ -209,7 +222,7 @@ public class EvaluationServiceTests
                 VersionNumber = 1,
                 TemplateKey = "leadership-competency-v1",
                 TemplatePath = "/tmp/original.json",
-                IsPublished = true,
+                IsPublished = false,
                 CreatedAt = DateTimeOffset.UtcNow
             });
             await db.SaveChangesAsync();
@@ -260,7 +273,7 @@ public class EvaluationServiceTests
                 VersionNumber = 1,
                 TemplateKey = "leadership-competency-v1",
                 TemplatePath = "/tmp/original.json",
-                IsPublished = true,
+                IsPublished = false,
                 CreatedAt = DateTimeOffset.UtcNow
             });
             await db.SaveChangesAsync();
@@ -561,7 +574,7 @@ public class EvaluationServiceTests
             VersionNumber = 1,
             TemplateKey = "leadership-competency-v1",
             TemplatePath = "/tmp/v1.json",
-            IsPublished = true,
+            IsPublished = false,
             CreatedAt = DateTimeOffset.UtcNow
         });
         await db.SaveChangesAsync();
@@ -618,6 +631,223 @@ public class EvaluationServiceTests
         Assert.Equal("publisher@test.com", version.PublishedBy);
         Assert.NotNull(version.PublishedAt);
         Assert.True(version.IsPublished);
+    }
+
+    [Fact]
+    public async Task PublishSurveyVersionAsync_AlreadyPublished_PreservesSnapshot()
+    {
+        await using var db = CreateDbContext();
+        var evaluation = await SeedAuthoredSurveyAsync(db);
+        var version = evaluation.CurrentSurveyDefinitionVersion!;
+        var originalJson = version.PublishedJson;
+        var publishedAt = version.PublishedAt;
+        version.DraftJson = "{\"pages\":[{\"name\":\"changed\"}]}";
+        await db.SaveChangesAsync();
+
+        var result = await CreateService(db).PublishSurveyVersionAsync(
+            version.SurveyDefinitionVersionId, evaluation.ClientId, "new-publisher@test.com");
+
+        Assert.False(result.Success);
+        Assert.Equal(originalJson, version.PublishedJson);
+        Assert.Equal(publishedAt, version.PublishedAt);
+        Assert.Equal("original@test.com", version.PublishedBy);
+    }
+
+    [Fact]
+    public async Task PublishedVersion_RejectsDraftAndPathChanges()
+    {
+        await using var db = CreateDbContext();
+        var evaluation = await SeedAuthoredSurveyAsync(db);
+        var version = evaluation.CurrentSurveyDefinitionVersion!;
+        var service = CreateService(db);
+        var originalDraft = version.DraftJson;
+        var originalPath = version.TemplatePath;
+
+        var draftResult = await service.SaveSurveyVersionDraftAsync(
+            version.SurveyDefinitionVersionId, evaluation.ClientId, "{}", "editor@test.com");
+        var pathResult = await service.UpdateSurveyVersionTemplatePathAsync(
+            version.SurveyDefinitionVersionId, evaluation.ClientId, "different.json");
+
+        Assert.False(draftResult.Success);
+        Assert.False(pathResult.Success);
+        Assert.Equal(originalDraft, version.DraftJson);
+        Assert.Equal(originalPath, version.TemplatePath);
+    }
+
+    [Fact]
+    public async Task SetCurrentSurveyVersionAsync_UnpublishedVersion_RejectsSwitch()
+    {
+        await using var db = CreateDbContext();
+        var evaluation = await SeedAuthoredSurveyAsync(db);
+        var service = CreateService(db);
+        await service.CreateNextSurveyVersionAsync(evaluation.EvaluationId, evaluation.ClientId);
+        var draft = await db.SurveyDefinitionVersions.SingleAsync(version => !version.IsPublished);
+
+        var switchResult = await service.SetCurrentSurveyVersionAsync(
+            evaluation.EvaluationId, draft.SurveyDefinitionVersionId, evaluation.ClientId, true);
+        var model = new Evaluation
+        {
+            EvaluationId = evaluation.EvaluationId,
+            ClientId = evaluation.ClientId,
+            CurrentSurveyDefinitionVersionId = draft.SurveyDefinitionVersionId
+        };
+        var saveResult = await service.SaveEvaluationAsync(model, evaluation.ClientId);
+
+        Assert.False(switchResult.Success);
+        Assert.False(saveResult);
+        Assert.NotEqual(draft.SurveyDefinitionVersionId, evaluation.CurrentSurveyDefinitionVersionId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CloneSurvey_CopiesAuthoredJsonAsDraft_WithoutSwitchingEvaluation(bool newFamily)
+    {
+        await using var db = CreateDbContext();
+        var evaluation = await SeedAuthoredSurveyAsync(db);
+        var original = evaluation.CurrentSurveyDefinitionVersion!;
+        var service = CreateService(db);
+
+        var result = newFamily
+            ? await service.CreateNewSurveyAsync(evaluation.EvaluationId, evaluation.ClientId)
+            : await service.CreateNextSurveyVersionAsync(evaluation.EvaluationId, evaluation.ClientId);
+
+        Assert.True(result.Success);
+        var clone = Assert.Single(await db.SurveyDefinitionVersions
+            .Where(version => version.SurveyDefinitionVersionId != original.SurveyDefinitionVersionId)
+            .ToListAsync());
+        Assert.Equal(original.PublishedJson, clone.DraftJson);
+        Assert.Null(clone.PublishedJson);
+        Assert.False(clone.IsPublished);
+        Assert.Null(clone.PublishedAt);
+        Assert.Equal(original.SurveyDefinitionVersionId, evaluation.CurrentSurveyDefinitionVersionId);
+        Assert.Equal(newFamily ? 1 : 2, clone.VersionNumber);
+        Assert.Equal(newFamily, clone.SurveyDefinitionId != original.SurveyDefinitionId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VersionSwitch_PreservesPinnedResponseAndTemplate(bool submitted)
+    {
+        await using var db = CreateDbContext();
+        var evaluation = await SeedAuthoredSurveyAsync(db);
+        var original = evaluation.CurrentSurveyDefinitionVersion!;
+        var ratee = TestDataBuilder.CreateEvaluationRatee(evaluationId: evaluation.EvaluationId);
+        var participant = TestDataBuilder.CreateEvaluationParticipant(evaluationRateeId: ratee.EvaluationRateeId);
+        db.EvaluationRatees.Add(ratee);
+        db.EvaluationParticipants.Add(participant);
+        await db.SaveChangesAsync();
+        var store = new SurveyResponseStore(db, new Mock<ILogger<SurveyResponseStore>>().Object);
+        var resolver = new SurveyTemplateResolver(
+            new ConfigurationBuilder().Build(), db, new Mock<ILogger<SurveyTemplateResolver>>().Object);
+        var service = CreateService(db);
+        var password = participant.EvaluationParticipantSurveyPassword;
+        await store.CreateAsync(ratee.EvaluationRateeId, participant.ParticipantId, password,
+            original.SurveyDefinitionVersionId, original.TemplateKey, original.VersionNumber);
+        await store.SaveDraftAsync(password, "{\"answer\":\"saved\"}");
+        if (submitted)
+        {
+            await store.SubmitAsync(password, "{\"answer\":\"final\"}");
+        }
+
+        await service.CreateNextSurveyVersionAsync(evaluation.EvaluationId, evaluation.ClientId);
+        var next = await db.SurveyDefinitionVersions.SingleAsync(version => !version.IsPublished);
+        Assert.Null(await resolver.ResolveAsync(next.SurveyDefinitionVersionId));
+        await service.SaveSurveyVersionDraftAsync(next.SurveyDefinitionVersionId, evaluation.ClientId,
+            "{\"pages\":[{\"name\":\"new-survey\"}]}", "editor@test.com");
+        Assert.True((await service.PublishSurveyVersionAsync(
+            next.SurveyDefinitionVersionId, evaluation.ClientId, "publisher@test.com")).Success);
+        Assert.True((await service.SetCurrentSurveyVersionAsync(
+            evaluation.EvaluationId, next.SurveyDefinitionVersionId, evaluation.ClientId, true)).Success);
+
+        var response = await store.GetByPasswordAsync(password);
+        Assert.Equal(original.SurveyDefinitionVersionId, response!.SurveyDefinitionVersionId);
+        Assert.Equal(original.SurveyDefinitionVersionId, participant.AssignedSurveyDefinitionVersionId);
+        Assert.Equal("{\"answer\":\"saved\"}", response.DraftJson);
+        Assert.Equal(submitted, response.IsSubmitted);
+        Assert.Equal(original.PublishedJson, (await resolver.ResolveAsync(response.SurveyDefinitionVersionId!.Value))!.Json);
+        Assert.Equal(next.PublishedJson, (await resolver.ResolveAsync(evaluation.CurrentSurveyDefinitionVersionId!.Value))!.Json);
+
+        if (submitted)
+        {
+            Assert.Equal("{\"answer\":\"final\"}", response.FinalJson);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.SaveDraftAsync(password, "{}"));
+        }
+        else
+        {
+            await store.SubmitAsync(password, "{\"answer\":\"final\"}");
+            Assert.True((await store.GetByPasswordAsync(password))!.IsSubmitted);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CloneSurvey_LegacyFileSource_CapturesContentAsDraft(bool newFamily)
+    {
+        var templatePath = Path.GetTempFileName();
+        try
+        {
+            const string originalJson = "{\"pages\":[{\"name\":\"legacy\"}]}";
+            await File.WriteAllTextAsync(templatePath, originalJson);
+            await using var db = CreateDbContext();
+            var evaluation = await SeedAuthoredSurveyAsync(db);
+            evaluation.CurrentSurveyDefinitionVersion!.PublishedJson = null;
+            evaluation.CurrentSurveyDefinitionVersion.TemplatePath = templatePath;
+            await db.SaveChangesAsync();
+            var service = CreateService(db);
+
+            var result = newFamily
+                ? await service.CreateNewSurveyAsync(evaluation.EvaluationId, evaluation.ClientId)
+                : await service.CreateNextSurveyVersionAsync(evaluation.EvaluationId, evaluation.ClientId);
+            await File.WriteAllTextAsync(templatePath, "{}");
+
+            Assert.True(result.Success);
+            var clone = await db.SurveyDefinitionVersions.SingleAsync(version => !version.IsPublished);
+            Assert.Equal(originalJson, clone.DraftJson);
+            Assert.False(clone.IsPublished);
+        }
+        finally
+        {
+            File.Delete(templatePath);
+        }
+    }
+
+    private static async Task<Evaluation> SeedAuthoredSurveyAsync(ApplicationDbContext db)
+    {
+        var client = TestDataBuilder.CreateClient();
+        var definition = new SurveyDefinition
+        {
+            ClientId = client.ClientId,
+            SurveyDefinitionKey = "authored-survey",
+            SurveyDefinitionName = "Authored Survey"
+        };
+        var version = new SurveyDefinitionVersion
+        {
+            SurveyDefinition = definition,
+            SurveyDefinitionId = definition.SurveyDefinitionId,
+            VersionNumber = 1,
+            TemplateKey = "authored-survey-v1",
+            TemplatePath = "missing-file.json",
+            PublishedJson = "{\"pages\":[{\"name\":\"authored\"}]}",
+            DraftJson = "{\"pages\":[{\"name\":\"unpublished-edit\"}]}",
+            IsPublished = true,
+            PublishedAt = DateTimeOffset.UtcNow,
+            PublishedBy = "original@test.com"
+        };
+        var evaluation = new Evaluation
+        {
+            ClientId = client.ClientId,
+            EvaluationName = "Review",
+            EvaluationFolder = "unused",
+            CurrentSurveyDefinitionVersion = version,
+            CurrentSurveyDefinitionVersionId = version.SurveyDefinitionVersionId
+        };
+        db.Clients.Add(client);
+        db.Evaluations.Add(evaluation);
+        await db.SaveChangesAsync();
+        return evaluation;
     }
 
     private static EvaluationService CreateService(ApplicationDbContext db)

@@ -107,7 +107,7 @@
                                     <span class="badge text-bg-primary">Current for evaluation</span>
                                 }
                             </td>
-                            <td>v@version.VersionNumber</td>
+                            <td>v@(version.VersionNumber)</td>
                             <td><code>@version.TemplateKey</code></td>
                             <td style="min-width: 320px;">
                                 <form asp-action="SaveSurveyTemplatePath"
@@ -120,8 +120,11 @@
                                     <input type="hidden" name="evaluationId" value="@Model.EvaluationId" />
                                     <input type="hidden" name="surveyDefinitionVersionId" value="@version.SurveyDefinitionVersionId" />
                                     <input type="hidden" name="selectedModel" value="Evaluations" />
-                                    <input type="text" class="form-control form-control-sm" name="templatePath" value="@version.TemplatePath" />
-                                    <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+                                    <input type="text" class="form-control form-control-sm" name="templatePath" value="@version.TemplatePath" readonly="@version.IsPublished" />
+                                    @if (!version.IsPublished)
+                                    {
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+                                    }
                                 </form>
                             </td>
                             <td>
@@ -152,9 +155,9 @@
                                         hx-get="@Url.Action("GetSurveyVersionDetail", "Admin", new { evaluationId = Model.EvaluationId, surveyDefinitionVersionId = version.SurveyDefinitionVersionId })"
                                         hx-target="#detailsContainer"
                                         hx-swap="innerHTML">
-                                    Edit Version
+                                    @(version.IsPublished ? "View Version" : "Edit Draft")
                                 </button>
-                                @if (!version.IsCurrentForEvaluation)
+                                @if (!version.IsCurrentForEvaluation && version.IsPublished)
                                 {
                                     <form asp-action="SetCurrentSurveyVersion"
                                           method="post"
@@ -171,7 +174,7 @@
                                         <button type="submit" class="btn btn-sm btn-primary">Use for New Starts</button>
                                     </form>
                                 }
-                                else
+                                else if (version.IsCurrentForEvaluation)
                                 {
                                     <span class="text-muted small">Active</span>
                                 }
