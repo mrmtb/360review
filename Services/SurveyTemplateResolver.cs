@@ -2,8 +2,10 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using reviews.Models;
 
 namespace reviews.Services;
 
@@ -13,6 +15,7 @@ namespace reviews.Services;
 /// </summary>
 public interface ISurveyTemplateResolver
 {
+    Task<SurveyTemplate?> ResolveAsync(Guid surveyDefinitionVersionId, CancellationToken ct = default);
     Task<SurveyTemplate?> ResolveAsync(string templateKey, int templateVersion, CancellationToken ct = default);
 }
 
@@ -21,14 +24,37 @@ public record SurveyTemplate(string Key, int Version, string Json);
 public class SurveyTemplateResolver : ISurveyTemplateResolver
 {
     private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _db;
     private readonly ILogger<SurveyTemplateResolver> _logger;
 
     public SurveyTemplateResolver(
         IConfiguration configuration,
+        ApplicationDbContext db,
         ILogger<SurveyTemplateResolver> logger)
     {
         _configuration = configuration;
+        _db = db;
         _logger = logger;
+    }
+
+    public async Task<SurveyTemplate?> ResolveAsync(Guid surveyDefinitionVersionId, CancellationToken ct = default)
+    {
+        var version = await _db.SurveyDefinitionVersions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(v => v.SurveyDefinitionVersionId == surveyDefinitionVersionId, ct);
+
+        if (version == null || !version.IsPublished)
+        {
+            _logger.LogError("Survey definition version not found: {SurveyDefinitionVersionId}", surveyDefinitionVersionId);
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(version.PublishedJson))
+        {
+            return new SurveyTemplate(version.TemplateKey, version.VersionNumber, version.PublishedJson);
+        }
+
+        return await ResolveFromPathAsync(version.TemplateKey, version.VersionNumber, version.TemplatePath, ct);
     }
 
     public async Task<SurveyTemplate?> ResolveAsync(string templateKey, int templateVersion, CancellationToken ct = default)
@@ -43,6 +69,15 @@ public class SurveyTemplateResolver : ISurveyTemplateResolver
 
         var basePath = _configuration["Survey:TemplatePath"] 
             ?? Path.Combine(Directory.GetCurrentDirectory(), "Surveys", "leadership-competency-v1.json");
+
+        return await ResolveFromPathAsync(templateKey, templateVersion, basePath, ct);
+    }
+
+    private async Task<SurveyTemplate?> ResolveFromPathAsync(string templateKey, int templateVersion, string templatePath, CancellationToken ct)
+    {
+        var basePath = Path.IsPathRooted(templatePath)
+            ? templatePath
+            : Path.Combine(Directory.GetCurrentDirectory(), templatePath);
 
         if (!File.Exists(basePath))
         {

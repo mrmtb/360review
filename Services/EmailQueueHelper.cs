@@ -23,7 +23,7 @@ namespace reviews.Services
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
         }
 
-        public async Task ProcessParticipantsForEmailQueueAsync(IEnumerable<vwInvitations> invitations, IEnumerable<EmailTemplate> emailTemplates, bool isTest = true, string actor = "System")
+        public async Task ProcessParticipantsForEmailQueueAsync(IEnumerable<vwInvitations> invitations, IEnumerable<EmailTemplate> emailTemplates, bool isTest = true, string actor = "System", bool assignmentScoped = false)
         {
             if (invitations == null || !invitations.Any())
             {
@@ -82,7 +82,7 @@ namespace reviews.Services
                 // Log the email queue entry for debugging
                 Console.WriteLine($"Queued email to {message.EmailTo} with subject '{message.EmailSubject}'");
                 // Process the email queue
-                await ProcessEmailItemFromQueue(message.EmailQueueId);
+                await ProcessEmailItemFromQueue(message.EmailQueueId, assignmentScoped);
             }
 
             return;
@@ -161,7 +161,7 @@ namespace reviews.Services
             return;
         }
 
-        private async Task ProcessEmailItemFromQueue(int emailId)
+        private async Task ProcessEmailItemFromQueue(int emailId, bool assignmentScoped = false)
         {
             var emailQueue = new List<EmailQueue>();
 
@@ -179,7 +179,7 @@ namespace reviews.Services
                     email.EmailSent = true;
                     email.EmailSentDateTime = DateTime.UtcNow;
 
-                    await MarkLastSentDate(email);
+                    await MarkLastSentDate(email, assignmentScoped);
                 }
             }
             // Save changes to the database
@@ -188,11 +188,11 @@ namespace reviews.Services
             return;
         }
 
-        private async Task MarkLastSentDate(EmailQueue message)
+        private async Task MarkLastSentDate(EmailQueue message, bool assignmentScoped = false)
         {
             var participant = new List<EvaluationParticipant>();
 
-            if (message.EmailSubject.ToLower().Contains("reminder"))
+            if (!assignmentScoped && message.EmailSubject.ToLower().Contains("reminder"))
             {
                 var evaluationRatees = new List<Guid>(_db.EvaluationRatees
                     .Where(er => er.EvaluationId == _db.EvaluationRatees

@@ -1,0 +1,139 @@
+@model reviews.Models.SurveyVersionUsageViewModel
+
+@{
+    var usageLabel = Model.UsageType switch
+    {
+        "pinned" => "Pinned Participants",
+        "started" => "Started Responses",
+        "submitted" => "Submitted Responses",
+        _ => "Usage Details"
+    };
+    var message = ViewData["SurveyUsageMessage"]?.ToString();
+    var severity = ViewData["SurveyUsageMessageSeverity"]?.ToString() ?? "success";
+    var alertClass = severity switch
+    {
+        "danger" => "alert-danger",
+        "warning" => "alert-warning",
+        _ => "alert-success"
+    };
+}
+
+<div class="border rounded p-3 bg-light-subtle">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+            <h6 class="mb-1">@usageLabel</h6>
+            <div class="text-muted small">@Model.SurveyDisplayName for @Model.EvaluationName</div>
+        </div>
+        <span class="badge text-bg-secondary">@Model.Count</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="alert @alertClass" role="alert">@message</div>
+    }
+
+    @if (Model.Rows.Any())
+    {
+        <div class="d-flex gap-2 flex-wrap mb-3">
+            <form asp-action="ActOnSurveyVersionUsageBulk"
+                  method="post"
+                  class="d-inline"
+                  hx-post="@Url.Action("ActOnSurveyVersionUsageBulk", "Admin")"
+                  hx-target="#surveyUsageDetails"
+                  hx-swap="innerHTML">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="evaluationId" value="@Model.EvaluationId" />
+                <input type="hidden" name="surveyDefinitionVersionId" value="@Model.SurveyDefinitionVersionId" />
+                <input type="hidden" name="usageType" value="@Model.UsageType" />
+                <input type="hidden" name="actionType" value="invite" />
+                <button type="submit" class="btn btn-sm btn-outline-primary">Resend Invites to Filtered Set</button>
+            </form>
+            <form asp-action="ActOnSurveyVersionUsageBulk"
+                  method="post"
+                  class="d-inline"
+                  hx-post="@Url.Action("ActOnSurveyVersionUsageBulk", "Admin")"
+                  hx-target="#surveyUsageDetails"
+                  hx-swap="innerHTML">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="evaluationId" value="@Model.EvaluationId" />
+                <input type="hidden" name="surveyDefinitionVersionId" value="@Model.SurveyDefinitionVersionId" />
+                <input type="hidden" name="usageType" value="@Model.UsageType" />
+                <input type="hidden" name="actionType" value="remind" />
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Send Reminders to Filtered Set</button>
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Ratee</th>
+                        <th>Rater</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Last Saved</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td>@row.RateeName</td>
+                        <td>@row.RaterName <span class="text-muted">(@row.RaterEmail)</span></td>
+                        <td>@row.RoleName</td>
+                        <td>@row.ParticipantStatusName</td>
+                        <td>@(row.LastSavedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                        <td>@(row.SubmittedAt?.ToString("yyyy-MM-dd HH:mm") ?? (row.IsSubmitted ? "Yes" : "-"))</td>
+                        <td>
+                            <div class="d-flex gap-2 flex-wrap">
+                                @if (row.CanResendInvite)
+                                {
+                                    <form asp-action="ActOnSurveyVersionUsageParticipant"
+                                          method="post"
+                                          class="d-inline"
+                                          hx-post="@Url.Action("ActOnSurveyVersionUsageParticipant", "Admin")"
+                                          hx-target="#surveyUsageDetails"
+                                          hx-swap="innerHTML">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="evaluationId" value="@Model.EvaluationId" />
+                                        <input type="hidden" name="surveyDefinitionVersionId" value="@Model.SurveyDefinitionVersionId" />
+                                        <input type="hidden" name="usageType" value="@Model.UsageType" />
+                                        <input type="hidden" name="evaluationRateeId" value="@row.EvaluationRateeId" />
+                                        <input type="hidden" name="participantId" value="@row.RaterParticipantId" />
+                                        <input type="hidden" name="actionType" value="invite" />
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Resend Invite</button>
+                                    </form>
+                                }
+                                @if (row.CanSendReminder)
+                                {
+                                    <form asp-action="ActOnSurveyVersionUsageParticipant"
+                                          method="post"
+                                          class="d-inline"
+                                          hx-post="@Url.Action("ActOnSurveyVersionUsageParticipant", "Admin")"
+                                          hx-target="#surveyUsageDetails"
+                                          hx-swap="innerHTML">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="evaluationId" value="@Model.EvaluationId" />
+                                        <input type="hidden" name="surveyDefinitionVersionId" value="@Model.SurveyDefinitionVersionId" />
+                                        <input type="hidden" name="usageType" value="@Model.UsageType" />
+                                        <input type="hidden" name="evaluationRateeId" value="@row.EvaluationRateeId" />
+                                        <input type="hidden" name="participantId" value="@row.RaterParticipantId" />
+                                        <input type="hidden" name="actionType" value="remind" />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Send Reminder</button>
+                                    </form>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <span class="form-control-plaintext">No participants match this usage state.</span>
+    }
+</div>

@@ -3,6 +3,48 @@
 ## Overview
 This guide provides best practices and examples for testing the 360 Review application.
 
+## Survey Versioning Regression Checks
+
+Run the unit and controller suite with:
+
+```bash
+dotnet test 360review.Tests/360review.Tests.csproj --configuration Release
+```
+
+The PostgreSQL migration test is skipped unless
+`SURVEY_MIGRATION_TEST_CONNECTION` points to an empty disposable database whose
+name starts with `360review_pr12_`. Never use an application or production database.
+It applies the foundation and authoring migrations to representative legacy data,
+verifies tenant-scoped backfills and preserved responses, then tests rollback.
+All database changes are made in a rolled-back transaction.
+
+```bash
+SURVEY_MIGRATION_TEST_CONNECTION='Host=localhost;Port=5432;Database=360review_pr12_migrations;Username=postgres' \
+    dotnet test 360review.Tests/360review.Tests.csproj --configuration Release \
+    --filter FullyQualifiedName~SurveyVersioningMigrationTests
+```
+
+The `Survey Migration Upgrade and Rollback` CI job provisions its own PostgreSQL
+service and runs this check on pull requests.
+
+Survey authoring now follows draft, publish, and explicit selection steps.
+Published versions are read-only; cloning copies the published JSON into a new
+draft without changing the evaluation's current version. Publish the draft before
+selecting it for new starters. Existing participant assignments remain pinned.
+
+Startup imports the configured `Survey:TemplatePath` into migration-seeded legacy
+versions before serving requests. Apply the schema migrations first and ensure
+that file is readable and contains a JSON object; startup fails rather than
+substituting another questionnaire when the import cannot be performed. Existing
+snapshots are not overwritten on later startups. New clients receive an initial
+published snapshot from the same configured template.
+
+The PostgreSQL regression suite also verifies that stale publishers and editors
+cannot overwrite the winning published snapshot. Publication includes the submitted
+editor contents in one concurrency-protected save. Unit tests cover exact assignment
+email targeting, resends, empty selections, evaluation saves, client bootstrap,
+and preservation of failed editor submissions. Email tests use a mocked sender.
+
 ## Testing Philosophy
 
 ### The Testing Pyramid

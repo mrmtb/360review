@@ -96,25 +96,35 @@ public class SurveyController : Controller
             "Runtime resolved - Password: {Password}, Ratee: {Ratee}, Role: {Role}, IsComplete: {IsComplete}, CompletedAt: {CompletedAt}, RaterParticipantId: {RaterId}",
             password, assignment.RateeDisplayName, assignment.RoleName, assignment.IsComplete, assignment.CompletedAt, assignment.RaterParticipantId);
 
-        // Get survey template (hardcoded for now, can be made dynamic later)
-        const string templateKey = "leadership-competency-v1";
-        const int templateVersion = 1;
+        var response = await _responseStore.GetByPasswordAsync(password, ct);
+        var surveyDefinitionVersionId = response?.SurveyDefinitionVersionId
+            ?? assignment.AssignedSurveyDefinitionVersionId
+            ?? assignment.CurrentSurveyDefinitionVersionId;
 
-        var template = await _templateResolver.ResolveAsync(templateKey, templateVersion, ct);
+        if (!surveyDefinitionVersionId.HasValue)
+        {
+            _logger.LogError("No survey version configured for evaluation {EvaluationId}", assignment.EvaluationId);
+            return StatusCode(500, new { error = "Survey version is not configured for this evaluation" });
+        }
+
+        var template = await _templateResolver.ResolveAsync(surveyDefinitionVersionId.Value, ct);
         if (template == null)
         {
-            _logger.LogError("Template not found: {TemplateKey} v{Version}", templateKey, templateVersion);
+            _logger.LogError("Template not found for survey definition version {SurveyDefinitionVersionId}", surveyDefinitionVersionId.Value);
             return StatusCode(500, new { error = "Survey template not found" });
         }
 
-        // Get or create response record
-        var response = await _responseStore.GetOrCreateAsync(
-            assignment.EvaluationRateeId,
-            assignment.RaterParticipantId,
-            password,
-            templateKey,
-            templateVersion,
-            ct);
+        if (response == null)
+        {
+            response = await _responseStore.CreateAsync(
+                assignment.EvaluationRateeId,
+                assignment.RaterParticipantId,
+                password,
+                surveyDefinitionVersionId.Value,
+                template.Key,
+                template.Version,
+                ct);
+        }
 
         // Return runtime data
         return Json(new

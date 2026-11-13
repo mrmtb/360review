@@ -12,11 +12,13 @@ public class ClientService : IClientService
 {
     private readonly ApplicationDbContext _db;
     private readonly ILogger<ClientService> _logger;
+    private readonly IConfiguration _configuration;
 
-    public ClientService(ApplicationDbContext db, ILogger<ClientService> logger)
+    public ClientService(ApplicationDbContext db, ILogger<ClientService> logger, IConfiguration? configuration = null)
     {
         _db = db;
         _logger = logger;
+        _configuration = configuration ?? new ConfigurationBuilder().Build();
     }
 
     public async Task<List<Client>> GetAllClientsAsync()
@@ -38,12 +40,13 @@ public class ClientService : IClientService
         try
         {
             var client = await _db.Clients.FirstOrDefaultAsync(c => c.ClientId == model.ClientId);
+            var isNew = client == null;
 
             if (client == null)
             {
                 client = new Client
                 {
-                    ClientId = model.ClientId
+                    ClientId = model.ClientId == Guid.Empty ? Guid.NewGuid() : model.ClientId
                 };
             }
 
@@ -51,7 +54,7 @@ public class ClientService : IClientService
             var properties = typeof(Client).GetProperties();
             foreach (var prop in properties)
             {
-                if (prop.Name == "ClientId") continue;
+                if (prop.Name == "ClientId" || !prop.PropertyType.IsValueType && prop.PropertyType != typeof(string)) continue;
 
                 var newValue = prop.GetValue(model);
                 var oldValue = prop.GetValue(client);
@@ -78,10 +81,11 @@ public class ClientService : IClientService
                 }
             }
 
-            if (client.ClientId == Guid.Empty)
+            if (isNew)
             {
-                client.ClientId = Guid.NewGuid();
+                var version = await SurveyVersionBootstrapper.CreateInitialVersionAsync(client.ClientId, _configuration);
                 _db.Clients.Add(client);
+                _db.SurveyDefinitionVersions.Add(version);
             }
             else
             {

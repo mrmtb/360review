@@ -414,7 +414,15 @@ public class AdminController : Controller
         }
 
         ViewData["SelectedModel"] = "Evaluations";
+        await PopulateEvaluationSurveyViewDataAsync(evaluation.ClientId);
         return PartialView("_ManageEvaluationsDetailPartial", evaluation);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> GetSurveyManagement(Guid evaluationId)
+    {
+        return await RenderSurveyManagementPartialAsync(evaluationId, "Evaluations");
     }
 
 
@@ -422,14 +430,14 @@ public class AdminController : Controller
     [HttpPost]
     [Authorize(Roles = RoleNames.Admin)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveEvaluation(Evaluation model, string selectedModel)
+    public async Task<IActionResult> SaveEvaluation(Evaluation model, string selectedModel, string? surveyTemplatePath = null)
     {
         if (model == null || model.ClientId == Guid.Empty)
         {
             return BadRequest(ErrorMessages.InvalidEvaluationData);
         }
 
-        var success = await _evaluationService.SaveEvaluationAsync(model, LocalClientId);
+        var success = await _evaluationService.SaveEvaluationAsync(model, LocalClientId, surveyTemplatePath);
         
         if (!success)
         {
@@ -669,6 +677,7 @@ public class AdminController : Controller
         {
             case "GetEvaluationsForManage":
                 ViewData["SelectedModel"] = "Evaluations";
+                PopulateEvaluationSurveyViewDataAsync(LocalClientId).GetAwaiter().GetResult();
                 return PartialView("_ManageEvaluationsDetailPartial", 
                     _evaluationService.CreateNewEvaluation(LocalClientId));
             
@@ -685,5 +694,231 @@ public class AdminController : Controller
             default:
                 return Content("Unknown model type: " + selectedModel);
         }
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateSurveyVersion(Guid evaluationId, string selectedModel)
+    {
+        var result = await _evaluationService.CreateNextSurveyVersionAsync(evaluationId, LocalClientId);
+        return await RenderSurveyManagementPartialAsync(evaluationId, selectedModel, result.Message, result.Severity);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateSurvey(Guid evaluationId, string selectedModel)
+    {
+        var result = await _evaluationService.CreateNewSurveyAsync(evaluationId, LocalClientId);
+        return await RenderSurveyManagementPartialAsync(evaluationId, selectedModel, result.Message, result.Severity);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetCurrentSurveyVersion(Guid evaluationId, Guid surveyDefinitionVersionId, string selectedModel, bool forceSwitch = false)
+    {
+        var result = await _evaluationService.SetCurrentSurveyVersionAsync(evaluationId, surveyDefinitionVersionId, LocalClientId, forceSwitch);
+        return await RenderSurveyManagementPartialAsync(evaluationId, selectedModel, result.Message, result.Severity);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveSurveyTemplatePath(Guid evaluationId, Guid surveyDefinitionVersionId, string templatePath, string selectedModel)
+    {
+        if (string.IsNullOrWhiteSpace(templatePath))
+        {
+            return await RenderSurveyManagementPartialAsync(evaluationId, selectedModel, "Template path is required.", "danger");
+        }
+
+        var result = await _evaluationService.UpdateSurveyVersionTemplatePathAsync(surveyDefinitionVersionId, LocalClientId, templatePath);
+        return await RenderSurveyManagementPartialAsync(evaluationId, selectedModel, result.Message, result.Severity);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> GetSurveyVersionUsage(Guid evaluationId, Guid surveyDefinitionVersionId, string usageType)
+    {
+        return await RenderSurveyVersionUsagePartialAsync(evaluationId, surveyDefinitionVersionId, usageType);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> GetSurveyVersionDetail(Guid evaluationId, Guid surveyDefinitionVersionId)
+    {
+        return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ActOnSurveyVersionUsageParticipant(
+        Guid evaluationId,
+        Guid surveyDefinitionVersionId,
+        string usageType,
+        Guid evaluationRateeId,
+        Guid participantId,
+        string actionType)
+    {
+        var usageModel = await _evaluationService.GetSurveyVersionUsageAsync(evaluationId, surveyDefinitionVersionId, LocalClientId, usageType);
+        if (usageModel == null || !usageModel.Rows.Any(row =>
+            row.EvaluationRateeId == evaluationRateeId && row.RaterParticipantId == participantId && !row.IsSubmitted))
+        {
+            return BadRequest("No eligible assignment was selected.");
+        }
+
+        var normalizedActionType = actionType?.Trim().ToLowerInvariant();
+        if (normalizedActionType is not ("invite" or "remind"))
+        {
+            return BadRequest("Unknown action.");
+        }
+
+        var count = await _invitationService.SendAssignmentEmailsAsync(
+            new List<(Guid EvaluationRateeId, Guid ParticipantId)> { (evaluationRateeId, participantId) },
+            LocalClientId, LocalEmail, normalizedActionType == "remind");
+        return await RenderSurveyVersionUsagePartialAsync(
+            evaluationId,
+            surveyDefinitionVersionId,
+            usageType,
+            $"Queued {count} assignment email(s).",
+            count > 0 ? "success" : "warning");
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ActOnSurveyVersionUsageBulk(
+        Guid evaluationId,
+        Guid surveyDefinitionVersionId,
+        string usageType,
+        string actionType)
+    {
+        var usageModel = await _evaluationService.GetSurveyVersionUsageAsync(evaluationId, surveyDefinitionVersionId, LocalClientId, usageType);
+        if (usageModel == null)
+        {
+            return NotFound();
+        }
+
+        var targets = usageModel.Rows.Where(row => !row.IsSubmitted)
+            .Select(row => (row.EvaluationRateeId, ParticipantId: row.RaterParticipantId)).Distinct().ToList();
+        if (targets.Count == 0)
+        {
+            return await RenderSurveyVersionUsagePartialAsync(evaluationId, surveyDefinitionVersionId, usageType, "No matching assignments were selected.", "warning");
+        }
+
+        var normalizedActionType = actionType?.Trim().ToLowerInvariant();
+        if (normalizedActionType is not ("invite" or "remind"))
+        {
+            return BadRequest("Unknown bulk action.");
+        }
+
+        var count = await _invitationService.SendAssignmentEmailsAsync(targets, LocalClientId, LocalEmail, normalizedActionType == "remind");
+        return await RenderSurveyVersionUsagePartialAsync(
+            evaluationId,
+            surveyDefinitionVersionId,
+            usageType,
+            $"Queued {count} assignment email(s).",
+            count > 0 ? "success" : "warning");
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveSurveyVersionDraft(Guid evaluationId, Guid surveyDefinitionVersionId, string draftJson)
+    {
+        var result = await _evaluationService.SaveSurveyVersionDraftAsync(surveyDefinitionVersionId, LocalClientId, draftJson, LocalEmail);
+        return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId, result.Message, result.Severity,
+            result.Success ? null : draftJson);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = RoleNames.Admin)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PublishSurveyVersion(Guid evaluationId, Guid surveyDefinitionVersionId, string? draftJson = null)
+    {
+        var result = await _evaluationService.PublishSurveyVersionAsync(surveyDefinitionVersionId, LocalClientId, LocalEmail, draftJson);
+        return await RenderSurveyVersionDetailPartialAsync(evaluationId, surveyDefinitionVersionId, result.Message, result.Severity,
+            result.Success ? null : draftJson);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<IActionResult> PreviewSurveyVersion(Guid evaluationId, Guid surveyDefinitionVersionId)
+    {
+        var model = await _evaluationService.GetSurveyVersionDetailAsync(evaluationId, surveyDefinitionVersionId, LocalClientId);
+        if (model == null)
+        {
+            return NotFound();
+        }
+
+        return Json(new
+        {
+            surveyDefinition = model.IsPublished ? model.PublishedJson : model.DraftJson,
+            templateKey = model.TemplateKey,
+            templateVersion = model.VersionNumber
+        });
+    }
+
+    private async Task PopulateEvaluationSurveyViewDataAsync(Guid clientId)
+    {
+        var options = await _evaluationService.GetSurveyVersionOptionsAsync(clientId);
+        ViewData["SurveyVersionOptions"] = options;
+    }
+
+    private async Task<IActionResult> RenderSurveyManagementPartialAsync(Guid evaluationId, string selectedModel, string? message = null, string severity = "success")
+    {
+        var model = await _evaluationService.GetSurveyManagementAsync(evaluationId, LocalClientId);
+        if (model == null)
+        {
+            return RedirectToAction(nameof(ManageIndex), new { selectedModel });
+        }
+
+        ViewData["SelectedModel"] = selectedModel;
+        ViewData["SurveyManagementMessage"] = message;
+        ViewData["SurveyManagementMessageSeverity"] = severity;
+        return PartialView("_ManageSurveyVersionsPartial", model);
+    }
+
+    private async Task<IActionResult> RenderSurveyVersionUsagePartialAsync(
+        Guid evaluationId,
+        Guid surveyDefinitionVersionId,
+        string usageType,
+        string? message = null,
+        string severity = "success")
+    {
+        var model = await _evaluationService.GetSurveyVersionUsageAsync(evaluationId, surveyDefinitionVersionId, LocalClientId, usageType);
+        if (model == null)
+        {
+            return NotFound();
+        }
+
+        ViewData["SurveyUsageMessage"] = message;
+        ViewData["SurveyUsageMessageSeverity"] = severity;
+        return PartialView("_SurveyVersionUsagePartial", model);
+    }
+
+    private async Task<IActionResult> RenderSurveyVersionDetailPartialAsync(
+        Guid evaluationId,
+        Guid surveyDefinitionVersionId,
+        string? message = null,
+        string severity = "success",
+        string? submittedDraftJson = null)
+    {
+        var model = await _evaluationService.GetSurveyVersionDetailAsync(evaluationId, surveyDefinitionVersionId, LocalClientId);
+        if (model == null)
+        {
+            return NotFound();
+        }
+
+        ViewData["SurveyVersionDetailMessage"] = message;
+        ViewData["SurveyVersionDetailMessageSeverity"] = severity;
+        if (!model.IsPublished && submittedDraftJson != null)
+        {
+            model.DraftJson = submittedDraftJson;
+        }
+
+        return PartialView("_SurveyVersionDetailPartial", model);
     }
 }

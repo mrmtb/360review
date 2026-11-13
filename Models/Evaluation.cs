@@ -13,7 +13,7 @@ public partial class Evaluation
 
     public string EvaluationName { get; set; } = null!;
 
-    public string EvaluationFolder { get; set; } = null!;
+    public string EvaluationFolder { get; set; } = string.Empty;
 
     public string? EvaluationHelpContact { get; set; } = "";
 
@@ -31,7 +31,11 @@ public partial class Evaluation
 
     public Guid ClientId { get; set; }
 
+    public Guid? CurrentSurveyDefinitionVersionId { get; set; }
+
     public Client? Client { get; set; }
+
+    public SurveyDefinitionVersion? CurrentSurveyDefinitionVersion { get; set; }
 
     public ICollection<EvaluationRatee> EvaluationRatee { get; set; } = new List<EvaluationRatee>();
 }

@@ -55,6 +55,10 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
 
     public DbSet<Participant> Participants { get; set; }
 
+    public DbSet<SurveyDefinition> SurveyDefinitions { get; set; }
+
+    public DbSet<SurveyDefinitionVersion> SurveyDefinitionVersions { get; set; }
+
     public DbSet<ParticipantRole> ParticipantRoles { get; set; }
 
     public DbSet<vwAdminParticipants> ViewAdminParticipants { get; set; }
@@ -397,6 +401,12 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
             entity.HasOne(d => d.Client).WithMany(p => p.Evaluations)
                 .HasForeignKey(d => d.ClientId)
                 .HasConstraintName("FK_Client_Evaluation_ClientId");
+
+            entity.HasOne(d => d.CurrentSurveyDefinitionVersion)
+                .WithMany(v => v.CurrentForEvaluations)
+                .HasForeignKey(d => d.CurrentSurveyDefinitionVersionId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_Evaluation_SurveyDefinitionVersion_CurrentSurveyDefinitionVersionId");
         });
 
         modelBuilder.Entity<EvaluationParticipant>(entity =>
@@ -430,6 +440,12 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
                 .WithMany(p => p.EvaluationParticipants)
                 .HasForeignKey(d => d.ParticipantRoleId)
                 .HasConstraintName("FK_EvaluationParticipant_ParticipantRole_ParticipantRoleId");
+
+            entity.HasOne(d => d.AssignedSurveyDefinitionVersion)
+                .WithMany()
+                .HasForeignKey(d => d.AssignedSurveyDefinitionVersionId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_EvaluationParticipant_SurveyDefinitionVersion_AssignedSurveyDefinitionVersionId");
         });
 
         modelBuilder.Entity<EvaluationParticipantStatus>(entity =>
@@ -469,6 +485,11 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
                 .WithMany()
                 .HasForeignKey(e => e.RaterParticipantId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SurveyDefinitionVersion)
+                .WithMany()
+                .HasForeignKey(e => e.SurveyDefinitionVersionId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<EvaluationRatee>(entity =>
@@ -515,6 +536,38 @@ public partial class ApplicationDbContext : IdentityDbContext<ApplicationUser,
 
             entity.Property(e => e.ParticipantId).HasDefaultValueSql("gen_random_uuid()");
             entity.Property(e => e.ParticipantHasRegistered).HasDefaultValue(false);
+        });
+
+        modelBuilder.Entity<SurveyDefinition>(entity =>
+        {
+            entity.ToTable("SurveyDefinition");
+
+            entity.Property(e => e.SurveyDefinitionId).HasDefaultValueSql("gen_random_uuid()");
+            entity.HasIndex(e => new { e.ClientId, e.SurveyDefinitionKey }, "UK_SurveyDefinition_ClientId_SurveyDefinitionKey").IsUnique();
+
+            entity.HasOne(e => e.Client)
+                .WithMany()
+                .HasForeignKey(e => e.ClientId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SurveyDefinitionVersion>(entity =>
+        {
+            entity.ToTable("SurveyDefinitionVersion");
+
+            entity.Property(e => e.SurveyDefinitionVersionId).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(e => e.DraftJson).HasColumnType("jsonb");
+            entity.Property(e => e.PublishedJson).HasColumnType("jsonb").IsConcurrencyToken();
+            entity.Property(e => e.IsPublished).IsConcurrencyToken();
+            entity.Property(e => e.CreatedAt).HasColumnType("timestamp with time zone");
+            entity.Property(e => e.LastEditedAt).HasColumnType("timestamp with time zone").IsConcurrencyToken();
+            entity.Property(e => e.PublishedAt).HasColumnType("timestamp with time zone");
+            entity.HasIndex(e => new { e.SurveyDefinitionId, e.VersionNumber }, "UK_SurveyDefinitionVersion_SurveyDefinitionId_VersionNumber").IsUnique();
+
+            entity.HasOne(e => e.SurveyDefinition)
+                .WithMany(d => d.Versions)
+                .HasForeignKey(e => e.SurveyDefinitionId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ParticipantRole>(entity =>

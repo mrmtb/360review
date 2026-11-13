@@ -114,6 +114,11 @@ public class InvitationService : IInvitationService
     {
         try
         {
+            if (participantTuples is { Count: 0 })
+            {
+                return false;
+            }
+
             var invitations = await GetInvitationsByClientAsync(clientId);
 
             if (participantTuples != null && participantTuples.Any())
@@ -149,6 +154,72 @@ public class InvitationService : IInvitationService
             _logger.LogError(ex, "Failed to process invitations for client {ClientId}", clientId);
             return false;
         }
+    }
+
+    public async Task<int> SendAssignmentEmailsAsync(
+        List<(Guid EvaluationRateeId, Guid ParticipantId)> targets,
+        Guid clientId,
+        string userEmail,
+        bool reminder)
+    {
+        if (targets.Count == 0)
+        {
+            return 0;
+        }
+
+        var selected = targets.ToHashSet();
+        var rateeIds = selected.Select(target => target.EvaluationRateeId).Distinct().ToList();
+        var participantIds = selected.Select(target => target.ParticipantId).Distinct().ToList();
+        var now = DateTime.UtcNow;
+        var candidates = await _db.EvaluationParticipants
+            .AsNoTracking()
+            .Where(assignment => rateeIds.Contains(assignment.EvaluationRateeId) &&
+                participantIds.Contains(assignment.ParticipantId) &&
+                assignment.EvaluationRatee.Evaluations.ClientId == clientId &&
+                assignment.Participants.ClientId == clientId &&
+                assignment.EvaluationRatee.Evaluations.EvaluationActive &&
+                assignment.EvaluationRatee.Participants.ParticipantIsActive &&
+                assignment.Participants.ParticipantIsActive &&
+                assignment.EvaluationParticipantStatus.EvaluationParticipantStatusIsActive == 1 &&
+                assignment.EvaluationParticipantStatus.EvaluationParticipantStatusIsComplete == 0 &&
+                !_db.EvaluationParticipantResponses.Any(response =>
+                    response.EvaluationRateeId == assignment.EvaluationRateeId &&
+                    response.RaterParticipantId == assignment.ParticipantId && response.IsSubmitted))
+            .Select(assignment => new vwInvitations
+            {
+                EvaluationRateeId = assignment.EvaluationRateeId,
+                RaterParticipantId = assignment.ParticipantId,
+                RateeFirstName = assignment.EvaluationRatee.Participants.ParticipantNameFirst,
+                RateeLastName = assignment.EvaluationRatee.Participants.ParticipantNameLast,
+                RaterFirstName = assignment.Participants.ParticipantNameFirst,
+                RaterLastName = assignment.Participants.ParticipantNameLast,
+                RaterEmail = assignment.Participants.ParticipantEmail,
+                RaterRole = assignment.ParticipantRoles.ParticipantRoleName,
+                DueDate = assignment.ParticipantRoles.ParticipantRoleName == ParticipantRoleNames.Self
+                    ? assignment.EvaluationRatee.EvaluationRateeDueDateOverride ?? assignment.EvaluationRatee.Evaluations.EvaluationRateeDueDate ?? DateTime.MaxValue
+                    : assignment.EvaluationRatee.EvaluationRaterDueDateOverride ?? assignment.EvaluationRatee.Evaluations.EvaluationRaterDueDate ?? DateTime.MaxValue,
+                EvaluationTestEmails = assignment.EvaluationRatee.Evaluations.EvaluationTestEmails,
+                ClientId = clientId,
+                ClientName = assignment.EvaluationRatee.Evaluations.Client!.ClientName,
+                ClientHelpContact = assignment.EvaluationRatee.Evaluations.Client!.ClientHelpContact,
+                MessageToSend = reminder ? EmailTemplateNames.ReminderGeneral
+                    : assignment.ParticipantRoles.ParticipantRoleName == ParticipantRoleNames.Self
+                        ? EmailTemplateNames.InvitationRatee : EmailTemplateNames.InvitationRater
+            })
+            .ToListAsync();
+
+        var invitations = candidates.Where(invitation =>
+            selected.Contains((invitation.EvaluationRateeId, invitation.RaterParticipantId)) &&
+            invitation.DueDate >= now).ToList();
+        if (invitations.Count == 0)
+        {
+            return 0;
+        }
+
+        var templates = await _db.EmailTemplates.AsNoTracking()
+            .Where(template => template.ClientId == clientId).ToListAsync();
+        await _emailQueueHelper.ProcessParticipantsForEmailQueueAsync(invitations, templates, false, userEmail, assignmentScoped: true);
+        return invitations.Count;
     }
 
     private List<vwInvitations> MapRemindersToInvitations(List<vwReminders> reminders)
