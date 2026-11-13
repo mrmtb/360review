@@ -9,6 +9,7 @@
             <tr>
                 <th>Evaluation Name</th>
                 <th>Client</th>
+                <th>Survey</th>
                 <th>Active</th>
                 <th>Email Testing</th>
                 <th>Open Date</th>
@@ -22,6 +23,11 @@
             <tr class="align-middle">
                 <td>@item.EvaluationName</td>
                 <td>@item.Client?.ClientName</td>
+                <td>
+                    @(item.CurrentSurveyDefinitionVersion?.SurveyDefinition?.SurveyDefinitionName is string surveyName
+                        ? $"{surveyName} v{item.CurrentSurveyDefinitionVersion?.VersionNumber}"
+                        : "Not configured")
+                </td>
                 <td>@(item.EvaluationActive ? "Yes" : "No")</td>
                 <td>@(item.EvaluationTestEmails ? "Yes" : "No")</td>
                 <td>@(item.EvaluationOpenDate is DateTime dt1 ? dt1.ToString("yyyy-MM-ddTHH:mm") : "")</td>

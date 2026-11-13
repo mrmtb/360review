@@ -456,6 +456,9 @@ namespace reviews.Migrations
                     b.Property<Guid>("ClientId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("CurrentSurveyDefinitionVersionId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("EvaluationActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -494,6 +497,8 @@ namespace reviews.Migrations
 
                     b.HasIndex("ClientId");
 
+                    b.HasIndex("CurrentSurveyDefinitionVersionId");
+
                     b.ToTable("Evaluation", "public");
                 });
 
@@ -503,6 +508,9 @@ namespace reviews.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("ParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedSurveyDefinitionVersionId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("EvaluationParticipantDateAdded")
@@ -537,6 +545,8 @@ namespace reviews.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("EvaluationRateeId", "ParticipantId");
+
+                    b.HasIndex("AssignedSurveyDefinitionVersionId");
 
                     b.HasIndex("EvaluationParticipantStatusId");
 
@@ -580,6 +590,9 @@ namespace reviews.Migrations
                     b.Property<DateTimeOffset?>("SubmittedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("SurveyDefinitionVersionId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("SurveyTemplateKey")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -591,6 +604,8 @@ namespace reviews.Migrations
                     b.HasKey("EvaluationParticipantResponseId");
 
                     b.HasIndex("RaterParticipantId");
+
+                    b.HasIndex("SurveyDefinitionVersionId");
 
                     b.HasIndex(new[] { "EvaluationRateeId" }, "IX_EvaluationParticipantResponse_RateeId");
 
@@ -747,6 +762,97 @@ namespace reviews.Migrations
                     b.HasKey("ParticipantRoleId");
 
                     b.ToTable("ParticipantRole", "public");
+                });
+
+            modelBuilder.Entity("reviews.Models.SurveyDefinition", b =>
+                {
+                    b.Property<Guid>("SurveyDefinitionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SurveyDefinitionKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SurveyDefinitionName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("SurveyDefinitionId");
+
+                    b.HasIndex(new[] { "ClientId", "SurveyDefinitionKey" }, "UK_SurveyDefinition_ClientId_SurveyDefinitionKey")
+                        .IsUnique();
+
+                    b.ToTable("SurveyDefinition", "public");
+                });
+
+            modelBuilder.Entity("reviews.Models.SurveyDefinitionVersion", b =>
+                {
+                    b.Property<Guid>("SurveyDefinitionVersionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DraftJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastEditedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastEditedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PublishedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("PublishedJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("SurveyDefinitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TemplateKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("TemplatePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("SurveyDefinitionVersionId");
+
+                    b.HasIndex(new[] { "SurveyDefinitionId", "VersionNumber" }, "UK_SurveyDefinitionVersion_SurveyDefinitionId_VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("SurveyDefinitionVersion", "public");
                 });
 
             modelBuilder.Entity("reviews.Models.vwAdminParticipants", b =>
@@ -1341,11 +1447,25 @@ namespace reviews.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Client_Evaluation_ClientId");
 
+                    b.HasOne("reviews.Models.SurveyDefinitionVersion", "CurrentSurveyDefinitionVersion")
+                        .WithMany("CurrentForEvaluations")
+                        .HasForeignKey("CurrentSurveyDefinitionVersionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_Evaluation_SurveyDefinitionVersion_CurrentSurveyDefinitionVersionId");
+
                     b.Navigation("Client");
+
+                    b.Navigation("CurrentSurveyDefinitionVersion");
                 });
 
             modelBuilder.Entity("reviews.Models.EvaluationParticipant", b =>
                 {
+                    b.HasOne("reviews.Models.SurveyDefinitionVersion", "AssignedSurveyDefinitionVersion")
+                        .WithMany()
+                        .HasForeignKey("AssignedSurveyDefinitionVersionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_EvaluationParticipant_SurveyDefinitionVersion_AssignedSurveyDefinitionVersionId");
+
                     b.HasOne("reviews.Models.EvaluationParticipantStatus", "EvaluationParticipantStatus")
                         .WithMany("EvaluationParticipants")
                         .HasForeignKey("EvaluationParticipantStatusId")
@@ -1370,6 +1490,8 @@ namespace reviews.Migrations
                         .HasForeignKey("ParticipantRoleId")
                         .HasConstraintName("FK_EvaluationParticipant_ParticipantRole_ParticipantRoleId");
 
+                    b.Navigation("AssignedSurveyDefinitionVersion");
+
                     b.Navigation("EvaluationParticipantStatus");
 
                     b.Navigation("EvaluationRatee");
@@ -1393,9 +1515,16 @@ namespace reviews.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("reviews.Models.SurveyDefinitionVersion", "SurveyDefinitionVersion")
+                        .WithMany()
+                        .HasForeignKey("SurveyDefinitionVersionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("EvaluationRatee");
 
                     b.Navigation("RaterParticipant");
+
+                    b.Navigation("SurveyDefinitionVersion");
                 });
 
             modelBuilder.Entity("reviews.Models.EvaluationRatee", b =>
@@ -1435,6 +1564,28 @@ namespace reviews.Migrations
                         .IsRequired();
 
                     b.Navigation("Client");
+                });
+
+            modelBuilder.Entity("reviews.Models.SurveyDefinition", b =>
+                {
+                    b.HasOne("reviews.Models.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+                });
+
+            modelBuilder.Entity("reviews.Models.SurveyDefinitionVersion", b =>
+                {
+                    b.HasOne("reviews.Models.SurveyDefinition", "SurveyDefinition")
+                        .WithMany("Versions")
+                        .HasForeignKey("SurveyDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SurveyDefinition");
                 });
 
             modelBuilder.Entity("reviews.Models.ApplicationUser", b =>
@@ -1481,6 +1632,16 @@ namespace reviews.Migrations
             modelBuilder.Entity("reviews.Models.ParticipantRole", b =>
                 {
                     b.Navigation("EvaluationParticipants");
+                });
+
+            modelBuilder.Entity("reviews.Models.SurveyDefinition", b =>
+                {
+                    b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("reviews.Models.SurveyDefinitionVersion", b =>
+                {
+                    b.Navigation("CurrentForEvaluations");
                 });
 #pragma warning restore 612, 618
         }

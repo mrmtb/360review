@@ -43,6 +43,11 @@ public class EvaluationParticipantResponse
     public int SurveyTemplateVersion { get; set; }
 
     /// <summary>
+    /// First-class link to the immutable survey version used by this response.
+    /// </summary>
+    public Guid? SurveyDefinitionVersionId { get; set; }
+
+    /// <summary>
     /// Draft response data stored as jsonb (autosaved)
     /// </summary>
     [Column(TypeName = "jsonb")]
@@ -72,4 +77,5 @@ public class EvaluationParticipantResponse
     // Navigation properties
     public virtual EvaluationRatee? EvaluationRatee { get; set; }
     public virtual Participant? RaterParticipant { get; set; }
+    public virtual SurveyDefinitionVersion? SurveyDefinitionVersion { get; set; }
 }

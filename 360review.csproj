@@ -34,6 +34,7 @@
 
   <!-- Exclude unused assets from publish -->
   <ItemGroup>
+    <Compile Remove="360review.Tests\**\*.cs" />
     <Content Remove="wwwroot\lib\bootstrap\**\*.svg" />
     <Content Remove="wwwroot\**\*.map" />
     <Content Remove="wwwroot\lib\**\*.md" />

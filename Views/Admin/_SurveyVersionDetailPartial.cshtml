@@ -1,0 +1,135 @@
+@model reviews.Models.SurveyVersionDetailViewModel
+
+@{
+    var message = ViewData["SurveyVersionDetailMessage"]?.ToString();
+    var severity = ViewData["SurveyVersionDetailMessageSeverity"]?.ToString() ?? "success";
+    var alertClass = severity switch
+    {
+        "danger" => "alert-danger",
+        "warning" => "alert-warning",
+        _ => "alert-success"
+    };
+}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h5 class="mb-1">@Model.SurveyDefinitionName v@Model.VersionNumber</h5>
+            <div class="text-muted small">@Model.EvaluationName</div>
+        </div>
+        <button type="button"
+                class="btn btn-outline-secondary btn-sm"
+                hx-get="@Url.Action("GetSurveyManagement", "Admin", new { evaluationId = Model.EvaluationId })"
+                hx-target="#detailsContainer"
+                hx-swap="innerHTML">
+            <i class="bi bi-arrow-left"></i> Back to Versions
+        </button>
+    </div>
+    <div class="card-body">
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="alert @alertClass" role="alert">@message</div>
+        }
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="border rounded p-3 h-100">
+                    <div class="fw-semibold">Template Key</div>
+                    <div><code>@Model.TemplateKey</code></div>
+                    <div class="mt-2 fw-semibold">Template Path</div>
+                    <div class="text-break">@Model.TemplatePath</div>
+                    <div class="mt-2 fw-semibold">Usage</div>
+                    <div class="small">Pinned: @Model.PinnedParticipantCount</div>
+                    <div class="small">Started: @Model.StartedResponseCount</div>
+                    <div class="small">Submitted: @Model.SubmittedResponseCount</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="border rounded p-3 h-100">
+                    <div class="fw-semibold">Draft</div>
+                    <div class="small text-muted">Last edited by @(string.IsNullOrWhiteSpace(Model.LastEditedBy) ? "n/a" : Model.LastEditedBy)</div>
+                    <div class="small text-muted">@(Model.LastEditedAt?.ToString("yyyy-MM-dd HH:mm") ?? "Not edited yet")</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="border rounded p-3 h-100">
+                    <div class="fw-semibold">Published</div>
+                    <div class="small text-muted">Published by @(string.IsNullOrWhiteSpace(Model.PublishedBy) ? "n/a" : Model.PublishedBy)</div>
+                    <div class="small text-muted">@(Model.PublishedAt?.ToString("yyyy-MM-dd HH:mm") ?? "Not published yet")</div>
+                    @if (Model.IsCurrentForEvaluation)
+                    {
+                        <div class="mt-2"><span class="badge text-bg-primary">Current for evaluation</span></div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info" role="alert">
+            This is the first authoring slice. The editor below is JSON-based today, but this panel is where we can embed a SurveyJS WYSIWYG creator next.
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <form asp-action="SaveSurveyVersionDraft"
+                      method="post"
+                      hx-post="@Url.Action("SaveSurveyVersionDraft", "Admin")"
+                      hx-target="#detailsContainer"
+                      hx-swap="innerHTML">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="evaluationId" value="@Model.EvaluationId" />
+                    <input type="hidden" name="surveyDefinitionVersionId" value="@Model.SurveyDefinitionVersionId" />
+                    <label class="form-label fw-semibold" for="draftJson">Draft JSON</label>
+                    <textarea class="form-control font-monospace" id="draftJson" name="draftJson" rows="24">@Model.DraftJson</textarea>
+                    <div class="d-flex gap-2 flex-wrap mt-3">
+                        <button type="submit" class="btn btn-primary">Save Draft</button>
+                        <button type="button"
+                                class="btn btn-outline-secondary"
+                                hx-get="@Url.Action("PreviewSurveyVersion", "Admin", new { evaluationId = Model.EvaluationId, surveyDefinitionVersionId = Model.SurveyDefinitionVersionId })"
+                                hx-on::after-request="window.AdminSurveyPreview && window.AdminSurveyPreview(event);">
+                            Preview Draft
+                        </button>
+                        <button type="submit"
+                                class="btn btn-outline-success"
+                                formaction="@Url.Action("PublishSurveyVersion", "Admin")"
+                                formmethod="post">
+                            Publish Version
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-lg-5">
+                <div class="border rounded p-3 h-100">
+                    <div class="fw-semibold mb-2">Preview</div>
+                    <div id="surveyVersionPreviewMessage" class="small text-muted mb-2">Load the draft into preview to verify layout and structure.</div>
+                    <div id="surveyVersionPreview" style="min-height: 320px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link href="/vendor/surveyjs/defaultV2.min.css" rel="stylesheet" />
+<script src="/vendor/surveyjs/knockout-latest.js"></script>
+<script src="/vendor/surveyjs/survey.ko.min.js"></script>
+<script>
+    window.AdminSurveyPreview = async function (event) {
+        if (!event.detail || !event.detail.xhr) return;
+        const responseText = event.detail.xhr.responseText;
+        if (!responseText) return;
+
+        const previewContainer = document.getElementById('surveyVersionPreview');
+        const previewMessage = document.getElementById('surveyVersionPreviewMessage');
+        if (!previewContainer || !previewMessage) return;
+
+        try {
+            const payload = JSON.parse(responseText);
+            previewContainer.innerHTML = '';
+            const surveyModel = new Survey.Model(JSON.parse(payload.surveyDefinition));
+            surveyModel.mode = 'display';
+            Survey.Knockout.renderSurvey(previewContainer, { model: surveyModel });
+            previewMessage.textContent = 'Preview loaded from the current draft.';
+        } catch (error) {
+            previewMessage.textContent = 'Preview failed. Save a valid JSON draft first.';
+        }
+    };
+</script>

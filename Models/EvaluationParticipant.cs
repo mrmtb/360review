@@ -29,6 +29,7 @@ public partial class EvaluationParticipant
     public string? SurveyTemplateKey { get; set; }
     public int? SurveyTemplateVersion { get; set; }
     public DateTime? SurveyLastSavedAt { get; set; }
+    public Guid? AssignedSurveyDefinitionVersionId { get; set; }
 
     public EvaluationRatee EvaluationRatee { get; set; } = null!;
 
@@ -37,4 +38,6 @@ public partial class EvaluationParticipant
     public Participant Participants { get; set; }  = null!;
 
     public ParticipantRole ParticipantRoles { get; set; } = null!;
+
+    public SurveyDefinitionVersion? AssignedSurveyDefinitionVersion { get; set; }
 }

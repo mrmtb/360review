@@ -1,4 +1,10 @@
+@using reviews.Services
 @model reviews.Models.Evaluation
+
+@{
+    var surveyVersionOptions = ViewData["SurveyVersionOptions"] as List<SurveyVersionOption> ?? new List<SurveyVersionOption>();
+    var currentTemplatePath = Model.CurrentSurveyDefinitionVersion?.TemplatePath ?? Model.EvaluationFolder;
+}
 
 <div class="card">
     <div class="card-header">
@@ -28,11 +34,37 @@
                     </div>
             </div>
             <div class="mb-3 row align-items-center">
-                <label class="col-2 col-form-label fw-bold" for="EvaluationFolder">Evaluation Folder</label>
-                    <div class="col">
-                        <input type="hidden" class="form-control" name="initialEvaluationFolder" id="initialEvaluationFolder" value="@Model.EvaluationFolder" />
-                        <input type="text" class="form-control" name="EvaluationFolder" id="EvaluationFolder" value="@Model.EvaluationFolder" />
+                <label class="col-2 col-form-label fw-bold" for="CurrentSurveyDefinitionVersionId">Survey Version</label>
+                <div class="col">
+                    <input type="hidden" name="initialCurrentSurveyDefinitionVersionId" value="@Model.CurrentSurveyDefinitionVersionId" />
+                    <select class="form-select" id="CurrentSurveyDefinitionVersionId" name="CurrentSurveyDefinitionVersionId">
+                        <option value="">Select a survey version</option>
+                        @foreach (var option in surveyVersionOptions)
+                        {
+                            if (option.SurveyDefinitionVersionId == Model.CurrentSurveyDefinitionVersionId)
+                            {
+                                <option value="@option.SurveyDefinitionVersionId" selected>@option.DisplayName</option>
+                            }
+                            else
+                            {
+                                <option value="@option.SurveyDefinitionVersionId">@option.DisplayName</option>
+                            }
+                        }
+                    </select>
+                    <div class="form-text">
+                        Respondents who already started stay pinned to their assigned version. New starters use the selected version.
                     </div>
+                </div>
+            </div>
+            <div class="mb-3 row align-items-center">
+                <label class="col-2 col-form-label fw-bold" for="surveyTemplatePath">Template Source</label>
+                <div class="col">
+                    <input type="hidden" class="form-control" name="initialEvaluationFolder" id="initialEvaluationFolder" value="@Model.EvaluationFolder" />
+                    <input type="text" class="form-control" name="surveyTemplatePath" id="surveyTemplatePath" value="@currentTemplatePath" />
+                    <div class="form-text">
+                        First pass: this points the current version to a SurveyJS JSON file under the workspace, such as <code>Surveys/leadership-competency-v1.json</code>.
+                    </div>
+                </div>
             </div>
             <div class="mb-3 row align-items-center">
                 <label class="col-2 col-form-label fw-bold" for="EvaluationHelpContact">Evaluation Help Contact</label>
@@ -82,6 +114,18 @@
             <div class="mb-3">
                     <input type="hidden" class="form-control" name="ClientId" id="ClientId" value="@Model.ClientId" />
             </div>
+            @if (Model.EvaluationId != Guid.Empty)
+            {
+                <div class="mb-3 d-flex gap-2 flex-wrap">
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            hx-get="@Url.Action("GetSurveyManagement", "Admin", new { evaluationId = Model.EvaluationId })"
+                            hx-target="#detailsContainer"
+                            hx-swap="innerHTML">
+                        <i class="bi bi-diagram-3"></i> Manage Survey Versions
+                    </button>
+                </div>
+            }
             <button type="submit" class="btn btn-primary">
                 @(Model.EvaluationId == Guid.Empty ? "Create" : "Save")
             </button>

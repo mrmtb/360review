@@ -331,6 +331,172 @@ public class AdminControllerTests
     }
 
     [Fact]
+    public async Task ActOnSurveyVersionUsageParticipant_Invite_CallsInvitationServiceAndReturnsPartial()
+    {
+        var evaluationId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        var evaluationRateeId = Guid.NewGuid();
+        var participantId = Guid.NewGuid();
+
+        _mockInvitationService
+            .Setup(x => x.ProcessInvitationsAsync(It.IsAny<List<(Guid EvaluationRateeId, Guid ParticipantId)>>(), It.IsAny<Guid>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        _mockEvaluationService
+            .Setup(x => x.GetSurveyVersionUsageAsync(evaluationId, versionId, It.IsAny<Guid>(), "started"))
+            .ReturnsAsync(new SurveyVersionUsageViewModel
+            {
+                EvaluationId = evaluationId,
+                SurveyDefinitionVersionId = versionId,
+                EvaluationName = "Eval",
+                SurveyDisplayName = "Survey v1",
+                UsageType = "started"
+            });
+
+        var result = await _controller.ActOnSurveyVersionUsageParticipant(
+            evaluationId,
+            versionId,
+            "started",
+            evaluationRateeId,
+            participantId,
+            "invite");
+
+        Assert.IsType<PartialViewResult>(result);
+        _mockInvitationService.Verify(
+            x => x.ProcessInvitationsAsync(
+                It.Is<List<(Guid EvaluationRateeId, Guid ParticipantId)>>(list => list.Count == 1 && list[0].EvaluationRateeId == evaluationRateeId && list[0].ParticipantId == participantId),
+                It.IsAny<Guid>(),
+                It.IsAny<string>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task ActOnSurveyVersionUsageParticipant_Remind_CallsReminderServiceAndReturnsPartial()
+    {
+        var evaluationId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        var evaluationRateeId = Guid.NewGuid();
+        var participantId = Guid.NewGuid();
+
+        _mockInvitationService
+            .Setup(x => x.ProcessRemindersAsync(It.IsAny<List<Guid>>(), It.IsAny<Guid>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        _mockEvaluationService
+            .Setup(x => x.GetSurveyVersionUsageAsync(evaluationId, versionId, It.IsAny<Guid>(), "submitted"))
+            .ReturnsAsync(new SurveyVersionUsageViewModel
+            {
+                EvaluationId = evaluationId,
+                SurveyDefinitionVersionId = versionId,
+                EvaluationName = "Eval",
+                SurveyDisplayName = "Survey v1",
+                UsageType = "submitted"
+            });
+
+        var result = await _controller.ActOnSurveyVersionUsageParticipant(
+            evaluationId,
+            versionId,
+            "submitted",
+            evaluationRateeId,
+            participantId,
+            "remind");
+
+        Assert.IsType<PartialViewResult>(result);
+        _mockInvitationService.Verify(
+            x => x.ProcessRemindersAsync(
+                It.Is<List<Guid>>(list => list.Count == 1 && list[0] == participantId),
+                It.IsAny<Guid>(),
+                It.IsAny<string>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task ActOnSurveyVersionUsageBulk_Invite_CallsInvitationServiceForFilteredSet()
+    {
+        var evaluationId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        var rateeId1 = Guid.NewGuid();
+        var rateeId2 = Guid.NewGuid();
+        var participantId1 = Guid.NewGuid();
+        var participantId2 = Guid.NewGuid();
+
+        _mockEvaluationService
+            .Setup(x => x.GetSurveyVersionUsageAsync(evaluationId, versionId, It.IsAny<Guid>(), "started"))
+            .ReturnsAsync(new SurveyVersionUsageViewModel
+            {
+                EvaluationId = evaluationId,
+                SurveyDefinitionVersionId = versionId,
+                EvaluationName = "Eval",
+                SurveyDisplayName = "Survey v1",
+                UsageType = "started",
+                Rows = new List<SurveyVersionUsageRow>
+                {
+                    new() { EvaluationRateeId = rateeId1, RaterParticipantId = participantId1, RaterName = "A", RaterEmail = "a@test.com", RateeName = "R1", RoleName = "Peer", ParticipantStatusName = "Pending" },
+                    new() { EvaluationRateeId = rateeId2, RaterParticipantId = participantId2, RaterName = "B", RaterEmail = "b@test.com", RateeName = "R2", RoleName = "Peer", ParticipantStatusName = "Pending" }
+                }
+            });
+
+        _mockInvitationService
+            .Setup(x => x.ProcessInvitationsAsync(It.IsAny<List<(Guid EvaluationRateeId, Guid ParticipantId)>>(), It.IsAny<Guid>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        var result = await _controller.ActOnSurveyVersionUsageBulk(evaluationId, versionId, "started", "invite");
+
+        Assert.IsType<PartialViewResult>(result);
+        _mockInvitationService.Verify(
+            x => x.ProcessInvitationsAsync(
+                It.Is<List<(Guid EvaluationRateeId, Guid ParticipantId)>>(list =>
+                    list.Count == 2 &&
+                    list.Any(item => item.EvaluationRateeId == rateeId1 && item.ParticipantId == participantId1) &&
+                    list.Any(item => item.EvaluationRateeId == rateeId2 && item.ParticipantId == participantId2)),
+                It.IsAny<Guid>(),
+                It.IsAny<string>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task ActOnSurveyVersionUsageBulk_Remind_CallsReminderServiceForFilteredSet()
+    {
+        var evaluationId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        var participantId1 = Guid.NewGuid();
+        var participantId2 = Guid.NewGuid();
+
+        _mockEvaluationService
+            .Setup(x => x.GetSurveyVersionUsageAsync(evaluationId, versionId, It.IsAny<Guid>(), "submitted"))
+            .ReturnsAsync(new SurveyVersionUsageViewModel
+            {
+                EvaluationId = evaluationId,
+                SurveyDefinitionVersionId = versionId,
+                EvaluationName = "Eval",
+                SurveyDisplayName = "Survey v1",
+                UsageType = "submitted",
+                Rows = new List<SurveyVersionUsageRow>
+                {
+                    new() { EvaluationRateeId = Guid.NewGuid(), RaterParticipantId = participantId1, RaterName = "A", RaterEmail = "a@test.com", RateeName = "R1", RoleName = "Peer", ParticipantStatusName = "Submitted" },
+                    new() { EvaluationRateeId = Guid.NewGuid(), RaterParticipantId = participantId2, RaterName = "B", RaterEmail = "b@test.com", RateeName = "R2", RoleName = "Peer", ParticipantStatusName = "Submitted" }
+                }
+            });
+
+        _mockInvitationService
+            .Setup(x => x.ProcessRemindersAsync(It.IsAny<List<Guid>>(), It.IsAny<Guid>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        var result = await _controller.ActOnSurveyVersionUsageBulk(evaluationId, versionId, "submitted", "remind");
+
+        Assert.IsType<PartialViewResult>(result);
+        _mockInvitationService.Verify(
+            x => x.ProcessRemindersAsync(
+                It.Is<List<Guid>>(list =>
+                    list.Count == 2 &&
+                    list.Contains(participantId1) &&
+                    list.Contains(participantId2)),
+                It.IsAny<Guid>(),
+                It.IsAny<string>()),
+            Times.Once());
+    }
+
+    [Fact]
     public async Task CancelEmail_Success_RedirectsToEmailQueueDashboard()
     {
         // Arrange

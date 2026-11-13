@@ -31,7 +31,11 @@ public partial class Evaluation
 
     public Guid ClientId { get; set; }
 
+    public Guid? CurrentSurveyDefinitionVersionId { get; set; }
+
     public Client? Client { get; set; }
+
+    public SurveyDefinitionVersion? CurrentSurveyDefinitionVersion { get; set; }
 
     public ICollection<EvaluationRatee> EvaluationRatee { get; set; } = new List<EvaluationRatee>();
 }

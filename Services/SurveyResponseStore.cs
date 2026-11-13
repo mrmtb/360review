@@ -13,13 +13,15 @@ namespace reviews.Services;
 /// </summary>
 public interface ISurveyResponseStore
 {
-    Task<SurveyResponseDto> GetOrCreateAsync(Guid evaluationRateeId, Guid raterParticipantId, string surveyPassword, string templateKey, int templateVersion, CancellationToken ct = default);
+    Task<SurveyResponseDto?> GetByPasswordAsync(string surveyPassword, CancellationToken ct = default);
+    Task<SurveyResponseDto> CreateAsync(Guid evaluationRateeId, Guid raterParticipantId, string surveyPassword, Guid surveyDefinitionVersionId, string templateKey, int templateVersion, CancellationToken ct = default);
     Task SaveDraftAsync(string surveyPassword, string draftJson, CancellationToken ct = default);
     Task SubmitAsync(string surveyPassword, string finalJson, CancellationToken ct = default);
 }
 
 public record SurveyResponseDto(
     Guid EvaluationParticipantResponseId,
+    Guid? SurveyDefinitionVersionId,
     string SurveyTemplateKey,
     int SurveyTemplateVersion,
     string? DraftJson,
@@ -41,40 +43,48 @@ public class SurveyResponseStore : ISurveyResponseStore
         _logger = logger;
     }
 
-    public async Task<SurveyResponseDto> GetOrCreateAsync(
+    public async Task<SurveyResponseDto?> GetByPasswordAsync(string surveyPassword, CancellationToken ct = default)
+    {
+        var existing = await _db.EvaluationParticipantResponses
+            .AsNoTracking()
+            .Where(r => r.EvaluationParticipantSurveyPassword == surveyPassword)
+            .FirstOrDefaultAsync(ct);
+
+        if (existing == null)
+        {
+            return null;
+        }
+
+        return new SurveyResponseDto(
+            EvaluationParticipantResponseId: existing.EvaluationParticipantResponseId,
+            SurveyDefinitionVersionId: existing.SurveyDefinitionVersionId,
+            SurveyTemplateKey: existing.SurveyTemplateKey,
+            SurveyTemplateVersion: existing.SurveyTemplateVersion,
+            DraftJson: existing.DraftJson,
+            FinalJson: existing.FinalJson,
+            IsSubmitted: existing.IsSubmitted,
+            LastSavedAt: existing.LastSavedAt,
+            SubmittedAt: existing.SubmittedAt);
+    }
+
+    public async Task<SurveyResponseDto> CreateAsync(
         Guid evaluationRateeId,
         Guid raterParticipantId,
         string surveyPassword,
+        Guid surveyDefinitionVersionId,
         string templateKey,
         int templateVersion,
         CancellationToken ct = default)
     {
-        _logger.LogInformation("Getting or creating response for password: {Password}", surveyPassword);
+        _logger.LogInformation("Creating response for password: {Password}", surveyPassword);
 
-        var existing = await _db.EvaluationParticipantResponses
-            .Where(r => r.EvaluationParticipantSurveyPassword == surveyPassword)
-            .FirstOrDefaultAsync(ct);
-
-        if (existing != null)
-        {
-            return new SurveyResponseDto(
-                EvaluationParticipantResponseId: existing.EvaluationParticipantResponseId,
-                SurveyTemplateKey: existing.SurveyTemplateKey,
-                SurveyTemplateVersion: existing.SurveyTemplateVersion,
-                DraftJson: existing.DraftJson,
-                FinalJson: existing.FinalJson,
-                IsSubmitted: existing.IsSubmitted,
-                LastSavedAt: existing.LastSavedAt,
-                SubmittedAt: existing.SubmittedAt);
-        }
-
-        // Create new response record
         var newResponse = new EvaluationParticipantResponse
         {
             EvaluationParticipantResponseId = Guid.NewGuid(),
             EvaluationRateeId = evaluationRateeId,
             RaterParticipantId = raterParticipantId,
             EvaluationParticipantSurveyPassword = surveyPassword,
+            SurveyDefinitionVersionId = surveyDefinitionVersionId,
             SurveyTemplateKey = templateKey,
             SurveyTemplateVersion = templateVersion,
             IsSubmitted = false,
@@ -84,6 +94,18 @@ public class SurveyResponseStore : ISurveyResponseStore
             SubmittedAt = null
         };
 
+        var evaluationParticipant = await _db.EvaluationParticipants
+            .FirstOrDefaultAsync(
+                ep => ep.EvaluationRateeId == evaluationRateeId && ep.ParticipantId == raterParticipantId,
+                ct);
+
+        if (evaluationParticipant != null)
+        {
+            evaluationParticipant.AssignedSurveyDefinitionVersionId ??= surveyDefinitionVersionId;
+            evaluationParticipant.SurveyTemplateKey = templateKey;
+            evaluationParticipant.SurveyTemplateVersion = templateVersion;
+        }
+
         _db.EvaluationParticipantResponses.Add(newResponse);
         await _db.SaveChangesAsync(ct);
 
@@ -91,6 +113,7 @@ public class SurveyResponseStore : ISurveyResponseStore
 
         return new SurveyResponseDto(
             EvaluationParticipantResponseId: newResponse.EvaluationParticipantResponseId,
+            SurveyDefinitionVersionId: newResponse.SurveyDefinitionVersionId,
             SurveyTemplateKey: newResponse.SurveyTemplateKey,
             SurveyTemplateVersion: newResponse.SurveyTemplateVersion,
             DraftJson: null,
@@ -120,6 +143,16 @@ public class SurveyResponseStore : ISurveyResponseStore
 
         response.DraftJson = draftJson;
         response.LastSavedAt = DateTime.UtcNow;
+
+        var participant = await _db.EvaluationParticipants
+            .FirstOrDefaultAsync(
+                ep => ep.EvaluationRateeId == response.EvaluationRateeId && ep.ParticipantId == response.RaterParticipantId,
+                ct);
+
+        if (participant != null)
+        {
+            participant.SurveyLastSavedAt = DateTime.UtcNow;
+        }
 
         await _db.SaveChangesAsync(ct);
 
